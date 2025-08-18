@@ -1,0 +1,6 @@
+fastapi
+mariadb
+uvicorn
+dotenv
+PyJWT
+requests

@@ -1,0 +1,6 @@
+.git
+.env
+older
+.venv
+*__pycache__/
+.dockerignore

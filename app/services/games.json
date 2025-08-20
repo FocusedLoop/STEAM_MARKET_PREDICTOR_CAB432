@@ -579,15 +579,15 @@
       {
         "appid": 730,
         "name": "Counter-Strike 2",
-        "playtime_2weeks": 464,
-        "playtime_forever": 61650,
+        "playtime_2weeks": 401,
+        "playtime_forever": 61717,
         "img_icon_url": "8dbc71957312bbd3baea65848b545be9eae2a355",
         "has_community_visible_stats": true,
-        "playtime_windows_forever": 21682,
+        "playtime_windows_forever": 21750,
         "playtime_mac_forever": 0,
         "playtime_linux_forever": 0,
         "playtime_deck_forever": 0,
-        "rtime_last_played": 1755094176,
+        "rtime_last_played": 1755437155,
         "content_descriptorids": [
           2,
           5

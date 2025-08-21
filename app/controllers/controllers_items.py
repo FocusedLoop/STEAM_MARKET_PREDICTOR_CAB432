@@ -56,3 +56,24 @@ def delete_task(task_id: int, user=Depends(authenticate_token)):
     return {"message": "Task deleted"}
   except Exception as e:
     raise HTTPException(status_code=500, detail=str(e))
+
+# MAYBE MAKE SO USER CAN ONLY HAVE ONE MODEL AT A TIME
+
+# STEAM
+# Get top games - Get a list of top games
+# Get top inventory items from a game - Get a list of top inventory items from a game
+# Get price history - Get the price history of an item > Returns a Link to get the price history
+
+# ITEMS - DB
+# Create Item Group - Create a new item group
+# Update Item group - Update an existing item group with a new price history for an item
+# DELETE Item Group - Delete an existing item group
+# GET Item Group - Get details of a specific item group
+
+# CREATE MODEL - PKL file with User ID
+# Generate Item Group Model - Generate price models for a group of items (item_group) > Returns a group of price history graphs
+# Generate Item Model - Generate price model for a specific item ({price history}}) > Returns a Graph of the price history
+
+# MAKE PREDICTION - GRAPH
+# Generate Item Group Prediction - Generate price predictions for a group of items (start, end)
+# Generate Item Price Prediction - Generate price predictions for a specific item (start, end)

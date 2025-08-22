@@ -11,12 +11,12 @@ def get_user_by_username(username):
     return dict(zip(columns, row)) if row else None
 
 # Create a new user
-def create_user(username, password):
+def create_user(username, password, steam_id):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO users (username, password) VALUES (?, ?)",
-        (username, password)
+        "INSERT INTO users (username, password, steam_id) VALUES (?, ?, ?)",
+        (username, password, steam_id)
     )
     conn.commit()
     user_id = cursor.lastrowid

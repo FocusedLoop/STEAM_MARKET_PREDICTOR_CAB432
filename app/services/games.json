@@ -579,15 +579,15 @@
       {
         "appid": 730,
         "name": "Counter-Strike 2",
-        "playtime_2weeks": 401,
-        "playtime_forever": 61717,
+        "playtime_2weeks": 205,
+        "playtime_forever": 61785,
         "img_icon_url": "8dbc71957312bbd3baea65848b545be9eae2a355",
         "has_community_visible_stats": true,
-        "playtime_windows_forever": 21750,
+        "playtime_windows_forever": 21818,
         "playtime_mac_forever": 0,
         "playtime_linux_forever": 0,
         "playtime_deck_forever": 0,
-        "rtime_last_played": 1755437155,
+        "rtime_last_played": 1755785792,
         "content_descriptorids": [
           2,
           5
@@ -2138,6 +2138,7 @@
         "name": "Blade & Sorcery",
         "playtime_forever": 471,
         "img_icon_url": "3a01fc72a16d06a538330e11cae7ed87bf0d40e5",
+        "has_community_visible_stats": true,
         "playtime_windows_forever": 471,
         "playtime_mac_forever": 0,
         "playtime_linux_forever": 0,

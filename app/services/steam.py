@@ -2,6 +2,8 @@
 #SteamID: STEAM_0:0:160437626
 import requests, os, json
 from urllib.parse import urlencode
+from collections import Counter
+from typing import Optional
 
 STEAM_COM_BASE = "https://steamcommunity.com"
 STEAM_API_BASE = "https://api.steampowered.com"
@@ -47,21 +49,62 @@ class steamAPI:
         return response.json()
 
     # Get the hash for the specific item
-    def _get_market_hash(self, appid: int):
+    def _get_market_hash(self, appid: int, classid: int, instanceid: int):
         url = f"{self.steam_api_base}/ISteamEconomy/GetAssetClassInfo/v1/"
         params = {
             "key": self.api_key,
             "appid": appid,
-            "classid0": SAMPLE_CLASS_ID,
-            "instanceid0": SAMPLE_INSTANCE_ID,
+            "classid0": classid,
+            "instanceid0": instanceid,
             "class_count": 1,
         }
         response = requests.get(url, params=params)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        result = data.get("result", {})
+        result_keys = [k for k in result.keys() if k != "success"]
+        if not result_keys:
+            return None
+        first_key = result_keys[0]
+        class_info = result.get(first_key, {})
+        market_hash_name = class_info.get("market_hash_name")
+        return market_hash_name
+
+    # Find the top n amount of suitable games with the most playtime
+    # GET
+    def find_suitable_games(self, top_n=10, min_playtime=60):
+        """
+        Returns a list of the user's top games by playtime, with their appids and names.
+        Only includes games with playtime above min_playtime (in minutes).
+        """
+        # Check for games
+        games_data = self._get_game_list()
+        if not games_data or 'response' not in games_data or 'games' not in games_data['response']:
+            return []
+        
+        games = games_data['response']['games']
+        filtered = [g for g in games if g.get('playtime_forever', 0) >= min_playtime] # Filter by minimum playtime
+        ranked = sorted(filtered, key=lambda x: x.get('playtime_forever', 0), reverse=True) # Sort by playtime (descending)
+        return [
+            {
+                'appid': g['appid'],
+                'name': g.get('name', ''),
+                'playtime_hours': round(g.get('playtime_forever', 0) / 60, 2)
+            }
+            for g in ranked[:top_n]
+        ]
 
     # Get price history for a specific item (market_hash_name) in a game
-    def _generate_price_history_url(self, appid: int, market_hash_name: str):
+    def generate_price_history_url(self, appid: int, marker_hash: Optional[str] = None, classid: Optional[int] = None, instanceid: Optional[int] = None):
+        if marker_hash:
+            market_hash_name = marker_hash
+        elif classid is not None and instanceid is not None:
+            market_hash_name = self._get_market_hash(appid, classid, instanceid)
+            if not market_hash_name:
+                raise ValueError("Could not resolve market_hash_name from classid/instanceid.")
+        else:
+            raise ValueError("You must provide either marker_hash or both classid and instanceid.")
+
         url = f"{self.steam_com_base}/market/pricehistory/"
         params = {
             "appid": appid,
@@ -69,47 +112,45 @@ class steamAPI:
         }
         full_url = url + "?" + urlencode(params)
         return full_url
-    
-    # TODO REFINE, TEST, ETC
-    # SAVE TO MARIA DB
-    def find_suitable_games(self, top_n=5, min_playtime=60):
-        """
-        Returns a list of the user's best games to get price histories for, ranked by a combination of playtime and estimated inventory value.
-        Only includes games with playtime above min_playtime (in minutes).
-        """
-        games_data = self._get_game_list()
-        if not games_data or 'response' not in games_data or 'games' not in games_data['response']:
-            return []
-        games = games_data['response']['games']
-        # Filter by minimum playtime
-        filtered = [g for g in games if g.get('playtime_forever', 0) >= min_playtime]
-        game_scores = []
-        for g in filtered:
-            appid = g['appid']
-            playtime = g.get('playtime_forever', 0)
-            # Try to get inventory for this game
-            try:
-                inventory = self._get_inventory(appid)
-                # Estimate value: count number of items (could be improved with price lookup)
-                num_items = len(inventory.get('descriptions', []))
-            except Exception:
-                num_items = 0
-            # Score: weighted sum of playtime and inventory size
-            score = playtime + (num_items * 100)  # You can adjust the weight as needed
-            game_scores.append({
-                'appid': appid,
-                'name': g.get('name', ''),
-                'playtime_forever': playtime,
-                'inventory_items': num_items,
-                'score': score
-            })
-        # Sort by score (descending)
-        ranked = sorted(game_scores, key=lambda x: x['score'], reverse=True)
-        return ranked[:top_n]
-    
-    # CONTINUE HERE
-    #def
-    
+
+    # Search for a specific item in the user's inventory
+    def search_item(self, appid: int, item_name: str):
+        inventory = self._get_inventory(appid)
+        descriptions = inventory.get("descriptions", [])
+        for desc in descriptions:
+            if item_name.lower() in desc.get("market_hash_name", "").lower() or \
+            item_name.lower() in desc.get("name", "").lower():
+                return {
+                    "market_hash_name": desc.get("market_hash_name"),
+                    "classid": desc.get("classid"),
+                    "instanceid": desc.get("instanceid"),
+                    "name": desc.get("name"),
+                    "icon_url": desc.get("icon_url"),
+                    "tradable": desc.get("tradable"),
+                }
+        return None
+
+    # Get the top N inventory items
+    def get_top_inventory_items(self, appid: int, top_n=5, tradable_only=True):
+        inventory = self._get_inventory(appid)
+        descriptions = inventory.get("descriptions", [])
+        if tradable_only:
+            descriptions = [d for d in descriptions if d.get("tradable", 0)]
+        counts = Counter([d.get("market_hash_name") for d in descriptions])
+        top_items = counts.most_common(top_n)
+        result = []
+        for name, count in top_items:
+            for desc in descriptions:
+                if desc.get("market_hash_name") == name:
+                    result.append({
+                        "market_hash_name": name,
+                        "count": count,
+                        "name": desc.get("name"),
+                        "icon_url": desc.get("icon_url"),
+                        "tradable": desc.get("tradable"),
+                    })
+                    break
+        return result
 
 if __name__ == "__main__":
     steam = steamAPI(STEAMID)
@@ -117,12 +158,15 @@ if __name__ == "__main__":
     inventory = steam._get_inventory(SAMPLE_GAME)
     market_hash = steam._get_market_hash(SAMPLE_GAME)
     print(market_hash)
-    price_history = steam._generate_price_history_url(SAMPLE_GAME, SAMPLE_HASH)
-    items = [games, inventory, market_hash, price_history]
-    file = ["games.json", "inventory.json", "market_hash.json", "price_history.txt"]
+    price_history = steam.generate_price_history_url(SAMPLE_GAME)
+    suitable_games = steam.find_suitable_games()
+    search_results = steam.search_item(market_hash)
+    print(search_results)
+    items = [games, inventory, market_hash, price_history, suitable_games]
+    file = ["games.json", "inventory.json", "market_hash.json", "price_history.txt", "suitable_games.json"]
     for i in range(len(file)):
         with open(file[i], "w") as f:
-            if i == 4:
+            if i == 3:
                 f.write(price_history)
             else:
                 json.dump(items[i], f, indent=2)

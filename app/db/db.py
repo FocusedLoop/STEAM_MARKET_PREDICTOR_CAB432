@@ -26,13 +26,16 @@ def get_connection():
     print("Failed to connect to MariaDB after 10 attempts. Exiting.")
     sys.exit(1)
 
-def create_tasks_table(conn):
+# Create group items table
+def create_group_items_table(conn):
     cursor = conn.cursor()
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS tasks (
+        CREATE TABLE IF NOT EXISTS group_items (
             id INT PRIMARY KEY AUTO_INCREMENT,
-            title VARCHAR(255) NOT NULL,
-            completed TINYINT DEFAULT 0
+            user_id INT NOT NULL,
+            item_name VARCHAR(255) NOT NULL,
+            item_json LONGTEXT NOT NULL,
+            FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
         );
     """)
     conn.commit()
@@ -42,6 +45,7 @@ def create_user_table(conn):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INT PRIMARY KEY AUTO_INCREMENT,
+            steam_id BIGINT,
             username VARCHAR(255) UNIQUE NOT NULL,
             password VARCHAR(255) NOT NULL
         );
@@ -52,8 +56,9 @@ def create_user_table(conn):
 def init_db():
   conn = get_connection()
   try:
-    create_tasks_table(conn)
+    #create_tasks_table(conn)
     create_user_table(conn)
+    create_group_items_table(conn)
     print("Database initialized and tasks table ensured.")
   except Exception as e:
     print(f"DB init failed: {e}")
@@ -61,3 +66,15 @@ def init_db():
     conn.close()
 
 init_db()
+
+
+# def create_tasks_table(conn):
+#     cursor = conn.cursor()
+#     cursor.execute("""
+#         CREATE TABLE IF NOT EXISTS tasks (
+#             id INT PRIMARY KEY AUTO_INCREMENT,
+#             title VARCHAR(255) NOT NULL,
+#             completed TINYINT DEFAULT 0
+#         );
+#     """)
+#     conn.commit()

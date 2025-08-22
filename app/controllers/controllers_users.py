@@ -16,12 +16,13 @@ async def login(request: Request):
 async def sign_up(request: Request):
     data = await request.json()
     username = data.get('username')
+    steamd_id = data.get('steam_id')
     password = data.get('password')
     user = get_user_by_username(username)
     if user:
         raise HTTPException(status_code=400, detail='User already exists')
     
-    create_user(username, password)
+    create_user(username, password, steamd_id)
     token = generate_access_token(username)
     return { 'authToken': token }
 

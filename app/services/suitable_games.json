@@ -1,0 +1,52 @@
+[
+  {
+    "appid": 730,
+    "name": "Counter-Strike 2",
+    "playtime_hours": 1029.75
+  },
+  {
+    "appid": 440,
+    "name": "Team Fortress 2",
+    "playtime_hours": 950.53
+  },
+  {
+    "appid": 700330,
+    "name": "SCP: Secret Laboratory",
+    "playtime_hours": 330.62
+  },
+  {
+    "appid": 294100,
+    "name": "RimWorld",
+    "playtime_hours": 300.78
+  },
+  {
+    "appid": 489830,
+    "name": "The Elder Scrolls V: Skyrim Special Edition",
+    "playtime_hours": 222.6
+  },
+  {
+    "appid": 359550,
+    "name": "Tom Clancy's Rainbow Six\u00ae Siege X",
+    "playtime_hours": 187.12
+  },
+  {
+    "appid": 22380,
+    "name": "Fallout: New Vegas",
+    "playtime_hours": 136.77
+  },
+  {
+    "appid": 413150,
+    "name": "Stardew Valley",
+    "playtime_hours": 116.87
+  },
+  {
+    "appid": 271590,
+    "name": "Grand Theft Auto V Legacy",
+    "playtime_hours": 100.87
+  },
+  {
+    "appid": 105600,
+    "name": "Terraria",
+    "playtime_hours": 100.85
+  }
+]

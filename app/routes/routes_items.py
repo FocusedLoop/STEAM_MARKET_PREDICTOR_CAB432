@@ -15,19 +15,19 @@ router = APIRouter()
 
 # TODO: Setup swagger
 
-router.post("/groups")(create_group)
+router.get("/")(get_all_groups)
 
-router.put("/groups/{group_id}")(update_group_name)
+router.post("/")(create_group)
 
-router.post("/groups/{group_id}/items")(add_item_to_group)
+router.put("//{group_id}")(update_group_name)
 
-router.delete("/groups/{group_id}/items")(remove_item_from_group)
+router.post("/{group_id}/items")(add_item_to_group)
 
-router.delete("/groups/{group_id}")(delete_group)
+router.delete("/{group_id}/items")(remove_item_from_group)
 
-router.get("/groups")(get_all_groups)
+router.delete("/{group_id}")(delete_group)
 
-router.get("/groups/{group_id}")(get_groups_by_id)
+router.get("/{group_id}")(get_groups_by_id)
 
 router.get("/steam/top-games")(get_steam_top_games)
 

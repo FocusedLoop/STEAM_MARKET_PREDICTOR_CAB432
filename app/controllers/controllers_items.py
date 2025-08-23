@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
+#from httpcore import request
 from app.auth.jwt import authenticate_token
 from app.services import steamAPI
 from app.models import (
@@ -106,10 +107,14 @@ async def get_steam_top_games(user=Depends(authenticate_token)):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Get price history for a specific item
-async def get_steam_item_history(appid: int, item_name: str, user=Depends(authenticate_token)):
-    if not appid or not item_name:
-        raise HTTPException(status_code=400, detail="App Id and Item name is required")
+async def get_steam_item_history(request: Request, user=Depends(authenticate_token)):
     try:
+        data = await request.json()
+        appid = data.get("appid")
+        item_name = data.get("item_name")
+        if not appid or not item_name:
+            raise HTTPException(status_code=400, detail="App Id and Item name is required")
+        
         steam = steamAPI(user["steam_id"])
         item_info = steam.search_item(appid, item_name)
         if not item_info or not item_info.get("market_hash_name"):

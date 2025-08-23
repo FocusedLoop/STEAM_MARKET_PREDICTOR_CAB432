@@ -8,8 +8,9 @@ from datetime import timezone
 SECRET_KEY = os.environ.get("JWT_SECRET")
 security = HTTPBearer()
 
-def generate_access_token(username):
+def generate_access_token(user_id, username):
     payload = {
+        'user_id': user_id,
         'username': username,
         'exp': datetime.datetime.now(timezone.utc) + datetime.timedelta(minutes=30)
     }

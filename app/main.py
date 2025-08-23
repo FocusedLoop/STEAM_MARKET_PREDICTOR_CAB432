@@ -14,7 +14,7 @@ app = FastAPI(
 )
 
 # Prefix is used to group routes under a common path
-app.include_router(router_items, prefix="/tasks")
+app.include_router(router_items, prefix="/group")
 app.include_router(router_users, prefix="/users")
 
 if __name__ == "__main__":

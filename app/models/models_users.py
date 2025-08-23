@@ -10,6 +10,15 @@ def get_user_by_username(username):
     conn.close()
     return dict(zip(columns, row)) if row else None
 
+# Get user id from username
+def get_user_id_by_username(username):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id FROM users WHERE username = ?", (username,))
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else None
+
 # Create a new user
 def create_user(username, password, steam_id):
     conn = get_connection()
@@ -21,7 +30,7 @@ def create_user(username, password, steam_id):
     conn.commit()
     user_id = cursor.lastrowid
     conn.close()
-    return {"user_id": user_id, "username": username}
+    return {"user_id": user_id, "username": username, "steam_id": steam_id}
 
 # Delete existing user
 def delete_user(user_id):

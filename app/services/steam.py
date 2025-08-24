@@ -44,9 +44,12 @@ class steamAPI:
     # Get the user inventory for a specific game
     def _get_inventory(self, game_id: int):
         url = f"{self.steam_com_base}/inventory/{self.steam_id}/{game_id}/2"
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.json()
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            return response.json()
+        except requests.HTTPError as e:
+            raise ValueError(f"Steam inventory fetch failed: {e}")
 
     # Get the hash for the specific item
     def _get_market_hash(self, appid: int, classid: int, instanceid: int):
@@ -71,7 +74,6 @@ class steamAPI:
         return market_hash_name
 
     # Find the top n amount of suitable games with the most playtime
-    # GET
     def find_suitable_games(self, top_n=10, min_playtime=60):
         """
         Returns a list of the user's top games by playtime, with their appids and names.
@@ -84,7 +86,7 @@ class steamAPI:
         
         games = games_data['response']['games']
         filtered = [g for g in games if g.get('playtime_forever', 0) >= min_playtime] # Filter by minimum playtime
-        ranked = sorted(filtered, key=lambda x: x.get('playtime_forever', 0), reverse=True) # Sort by playtime (descending)
+        ranked = sorted(filtered, key=lambda x: x.get('playtime_forever', 0), reverse=True) # Sort by descending playtime
         return [
             {
                 'appid': g['appid'],

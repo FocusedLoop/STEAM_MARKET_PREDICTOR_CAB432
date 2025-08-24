@@ -19,6 +19,15 @@ def get_user_id_by_username(username):
     conn.close()
     return row[0] if row else None
 
+# Get steam id from username
+def get_steam_id_by_username(username):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT steam_id FROM users WHERE username = ?", (username,))
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else None
+
 # Create a new user
 def create_user(username, password, steam_id):
     conn = get_connection()

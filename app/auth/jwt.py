@@ -8,10 +8,11 @@ from datetime import timezone
 SECRET_KEY = os.environ.get("JWT_SECRET")
 security = HTTPBearer()
 
-def generate_access_token(user_id, username):
+def generate_access_token(user_id, username, steam_id):
     payload = {
         'user_id': user_id,
         'username': username,
+        "steam_id": steam_id,
         'exp': datetime.datetime.now(timezone.utc) + datetime.timedelta(minutes=30)
     }
     return jwt.encode(payload, SECRET_KEY, algorithm='HS256')

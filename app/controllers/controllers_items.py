@@ -5,12 +5,13 @@ from app.auth.jwt import authenticate_token
 from app.services import steamAPI
 from app.models import (
   model_get_all_groups,
-  model_get_groups_by_id,
+  model_get_group_by_id,
   model_create_group,
   model_update_group,
   model_remove_group,
   model_add_item_to_group,
   model_remove_item_from_group,
+  model_get_group_items
 )
 
 router = APIRouter()
@@ -88,9 +89,9 @@ def get_all_groups():
         raise HTTPException(status_code=500, detail=str(e))
 
 # Get a group by ID - no auth
-def get_groups_by_id(group_id: int):
+def get_group_by_id(group_id: int):
     try:
-        group = model_get_groups_by_id(group_id)
+        group = model_get_group_by_id(group_id)
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
         return JSONResponse(content=group)
@@ -116,21 +117,31 @@ async def get_steam_item_history(request: Request, user=Depends(authenticate_tok
             raise HTTPException(status_code=400, detail="App Id and Item name is required")
         
         steam = steamAPI(user["steam_id"])
-        item_info = steam.search_item(appid, item_name)
+        try:
+            item_info = steam.search_item(appid, item_name)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
         if not item_info or not item_info.get("market_hash_name"):
             raise HTTPException(status_code=404, detail="Item not found in inventory")
         
-        # Use the found info to generate the price history URL
         item_history_url = steam.generate_price_history_url(
             appid=appid,
             marker_hash=item_info["market_hash_name"],
-            # classid=item_info.get("classid"),
-            # instanceid=item_info.get("instanceid")
         )
         return JSONResponse(content={"price_history_url": item_history_url})
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-  
+
+# Get all items in a group
+async def get_group_items(group_id: int, user=Depends(authenticate_token)):
+    try:
+        items = model_get_group_items(user["user_id"], group_id)
+        return JSONResponse(content=items)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # MAYBE MAKE SO USER CAN ONLY HAVE ONE MODEL AT A TIME
 
 # STEAM

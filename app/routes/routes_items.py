@@ -6,9 +6,10 @@ from app.controllers import (
     remove_item_from_group,
     delete_group,
     get_all_groups,
-    get_groups_by_id,
+    get_group_by_id,
     get_steam_top_games,
-    get_steam_item_history
+    get_steam_item_history,
+    get_group_items
 )
 
 router = APIRouter()
@@ -19,19 +20,21 @@ router.get("/")(get_all_groups)
 
 router.post("/")(create_group)
 
-router.put("//{group_id}")(update_group_name)
+router.put("/{group_id}")(update_group_name)
 
 router.post("/{group_id}/items")(add_item_to_group)
+
+router.get("/{group_id}/items")(get_group_items)
 
 router.delete("/{group_id}/items")(remove_item_from_group)
 
 router.delete("/{group_id}")(delete_group)
 
-router.get("/{group_id}")(get_groups_by_id)
+router.get("/{group_id}")(get_group_by_id)
 
 router.get("/steam/top-games")(get_steam_top_games)
 
-router.get("/steam/item-history")(get_steam_item_history)
+router.post("/steam/item-history")(get_steam_item_history)
 
 # from app.controllers import (
 #     get_all_tasks, 

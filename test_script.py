@@ -19,7 +19,7 @@
 
 # print(f'Average time {totalTime / numberOfRequests}')
 
-import requests
+import requests, json, sys
 
 #BASE_URL = "http://3.90.236.235:3018"
 BASE_URL = "http://localhost:3018"
@@ -27,13 +27,17 @@ USERNAME = "testuser"
 PASSWORD = "testpass"
 STEAM_ID = "76561198281140980"
 
-def print_response(r):
+def print_response(r, allow_error=False):
     print(f"Status: {r.status_code}")
     try:
-        print(r.json())
+        print(json.dumps(r.json(), indent=2))
     except Exception:
         print(r.text)
     print("-" * 40)
+    # Only exit if not allowed and status is 400/500 (but not 405)
+    if not allow_error and (r.status_code == 500 or r.status_code == 400 or r.status_code == 404) and r.status_code != 405:
+        print("Error encountered, exiting test script.")
+        sys.exit(1)
 
 def get_auth_token():
     # Sign up (ignore if already exists)
@@ -63,10 +67,10 @@ def auth_headers(token):
 def test_groups(token):
     print("Testing group endpoints...")
 
-    # Create group (missing title)
+    # Create group (missing title) -- 400 is expected, don't exit
     r = requests.post(f"{BASE_URL}/group", headers=auth_headers(token), json={})
     print("Create group (missing title):")
-    print_response(r)
+    print_response(r, allow_error=True)
 
     # Create group (valid)
     r = requests.post(f"{BASE_URL}/group", headers=auth_headers(token), json={"title": "My Test Group"})
@@ -74,16 +78,16 @@ def test_groups(token):
     print_response(r)
     group_id = r.json().get("id") if r.status_code == 200 else None
 
-    # Update group (missing title)
+    # Update group (missing title) -- 400/405 may be expected
     if group_id:
         r = requests.put(f"{BASE_URL}/group/{group_id}", headers=auth_headers(token), json={})
         print("Update group (missing title):")
-        print_response(r)
+        print_response(r, allow_error=True)
 
         # Update group (valid)
         r = requests.put(f"{BASE_URL}/group/{group_id}", headers=auth_headers(token), json={"title": "Renamed Group"})
         print("Update group (valid):")
-        print_response(r)
+        print_response(r, allow_error=True)
 
     # Get all groups (no auth)
     r = requests.get(f"{BASE_URL}/group")
@@ -93,7 +97,7 @@ def test_groups(token):
     # Get group by ID (no auth, invalid ID)
     r = requests.get(f"{BASE_URL}/group/999999")
     print("Get group by invalid ID:")
-    print_response(r)
+    print_response(r, allow_error=True)
 
     # Get group by ID (no auth, valid)
     if group_id:
@@ -105,7 +109,7 @@ def test_groups(token):
     if group_id:
         r = requests.post(f"{BASE_URL}/group/{group_id}/items", headers=auth_headers(token), json={})
         print("Add item to group (missing fields):")
-        print_response(r)
+        print_response(r, allow_error=True)
 
         # Add item to group (valid)
         item_json = {
@@ -118,23 +122,48 @@ def test_groups(token):
         r = requests.post(
             f"{BASE_URL}/group/{group_id}/items",
             headers=auth_headers(token),
-            json={"item_name": "Test Item", "item_json": item_json}
+            json={"item_name": "Test Item 1", "item_json": item_json}
         )
         print("Add item to group (valid):")
+        print_response(r)
+
+        # Get second item
+        r = requests.post(
+            f"{BASE_URL}/group/{group_id}/items",
+            headers=auth_headers(token),
+            json={"item_name": "Test Item 2", "item_json": item_json}
+        )
+        print("Add 2nd item to group (valid):")
+        print_response(r)
+
+        # Display both items
+        r = requests.get(
+            f"{BASE_URL}/group/{group_id}/items",
+            headers=auth_headers(token)
+        )
+        print("Get group items after adding 2 items by valid ID:")
         print_response(r)
 
         # Remove item from group (missing fields)
         r = requests.delete(f"{BASE_URL}/group/{group_id}/items", headers=auth_headers(token), json={})
         print("Remove item from group (missing fields):")
-        print_response(r)
+        print_response(r, allow_error=True)
 
         # Remove item from group (valid)
         r = requests.delete(
             f"{BASE_URL}/group/{group_id}/items",
             headers=auth_headers(token),
-            json={"item_name": "Test Item"}
+            json={"item_name": "Test Item 2"}
         )
-        print("Remove item from group (valid):")
+        print("Remove 1 item from group (valid):")
+        print_response(r)
+
+        # Display remaining item
+        r = requests.get(
+            f"{BASE_URL}/group/{group_id}/items",
+            headers=auth_headers(token)
+        )
+        print("Get group items after removing 1 items by valid ID:")
         print_response(r)
 
         # Delete group (valid)
@@ -145,7 +174,7 @@ def test_groups(token):
         # Delete group (already deleted)
         r = requests.delete(f"{BASE_URL}/group/{group_id}", headers=auth_headers(token))
         print("Delete group (already deleted):")
-        print_response(r)
+        print_response(r, allow_error=True)
 
 def test_steam(token):
     print("Testing Steam endpoints...")
@@ -161,17 +190,17 @@ def test_steam(token):
     print_response(r)
 
     # Item history (missing params)
-    r = requests.get(f"{BASE_URL}/group/steam/item-history", headers=auth_headers(token))
+    r = requests.post(f"{BASE_URL}/group/steam/item-history", headers=auth_headers(token), json={})
     print("Get item history (missing params):")
-    print_response(r)
+    print_response(r, allow_error=True)
 
     # Item history (invalid appid)
-    r = requests.get(f"{BASE_URL}/group/steam/item-history", headers=auth_headers(token), params={"appid": 999999, "item_name": "Nonexistent"})
+    r = requests.post(f"{BASE_URL}/group/steam/item-history", headers=auth_headers(token), json={"appid": 999999, "item_name": "Nonexistent"})
     print("Get item history (invalid appid):")
-    print_response(r)
+    print_response(r, allow_error=True)
 
     # Item history (valid, but may need to adjust appid/item_name for your inventory)
-    r = requests.get(f"{BASE_URL}/group/steam/item-history", headers=auth_headers(token), params={"appid": 440, "item_name": "War Paint"})
+    r = requests.post(f"{BASE_URL}/group/steam/item-history", headers=auth_headers(token), json={"appid": 440, "item_name": "Civic Duty Mk.II Knife (Factory New)"})
     print("Get item history (valid):")
     print_response(r)
 

@@ -12,14 +12,14 @@ def model_get_all_groups():
     return [dict(zip(columns, row)) for row in rows]
 
 # Get all items in a group by group_id
-def model_get_groups_by_id(group_id):
+def model_get_group_by_id(group_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM group_items WHERE group_id = ?", (group_id,))
-    rows = cursor.fetchall()
+    cursor.execute("SELECT * FROM groups WHERE id = ?", (group_id,))
+    row = cursor.fetchone()
     columns = [desc[0] for desc in cursor.description]
     conn.close()
-    return [dict(zip(columns, row)) for row in rows]
+    return dict(zip(columns, row)) if row else None
 
 # Create a new group for a user
 def model_create_group(user_id, group_name):
@@ -89,6 +89,25 @@ def model_remove_item_from_group(user_id, group_id, item_name):
     removed = cursor.rowcount > 0
     conn.close()
     return {"removed": removed}
+
+def model_get_group_items(user_id, group_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT gi.* FROM group_items gi
+        JOIN groups g ON gi.group_id = g.id
+        WHERE g.user_id = ? AND gi.group_id = ?
+    """, (user_id, group_id))
+    rows = cursor.fetchall()
+    columns = [desc[0] for desc in cursor.description]
+    conn.close()
+    items = [dict(zip(columns, row)) for row in rows]
+    for item in items:
+        try:
+            item["item_json"] = json.loads(item["item_json"])
+        except Exception:
+            pass
+    return items
 
 # def get_all():
 #   conn = get_connection()

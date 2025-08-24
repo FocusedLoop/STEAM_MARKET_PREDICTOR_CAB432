@@ -1,14 +1,15 @@
 from .controllers_users import login, sign_up
 from .controllers_items import (
     get_all_groups,
-    get_groups_by_id,
+    get_group_by_id,
     create_group,
     update_group_name,
     add_item_to_group,
     remove_item_from_group,
     delete_group,
     get_steam_top_games,
-    get_steam_item_history
+    get_steam_item_history,
+    get_group_items
     )
 # from .controllers_items import (
 #     get_all_tasks, 
@@ -24,7 +25,7 @@ __all__ = [#"get_all_tasks",
            #"update_task", 
            #"delete_task",
            "get_all_groups",
-           "get_groups_by_id",
+           "get_group_by_id",
            "create_group",
            "update_group_name",
            "add_item_to_group",
@@ -32,6 +33,7 @@ __all__ = [#"get_all_tasks",
            "delete_group",
            "get_steam_top_games",
            "get_steam_item_history",
+           "get_group_items",
            "login",
            "sign_up"
            ]

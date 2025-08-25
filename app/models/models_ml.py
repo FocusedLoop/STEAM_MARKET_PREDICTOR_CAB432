@@ -1,38 +1,59 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text
-from sqlalchemy.orm import declarative_base, relationship
-from datetime import datetime
+from app.db import get_connection
 
-Base = declarative_base()
+def model_save_model_index(user_id, group_id, item_id, data_hash, model_path, scaler_path, stats_path):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO model_index (user_id, group_id, item_id, data_hash, model_path, scaler_path, stats_path)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (user_id, group_id, item_id, data_hash, model_path, scaler_path, stats_path))
+    conn.commit()
+    model_id = cursor.lastrowid
+    cursor.close()
+    conn.close()
+    return {
+        "id": model_id,
+        "user_id": user_id,
+        "group_id": group_id,
+        "item_id": item_id,
+        "data_hash": data_hash,
+    }
 
-class User(Base):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True)
-    username = Column(String, unique=True, nullable=False)
+def model_get_model_index(user_id, item_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT * FROM model_index
+        WHERE user_id = ? AND item_id = ?
+        ORDER BY created_at DESC LIMIT 1
+    """, (user_id, item_id))
+    row = cursor.fetchone()
+    columns = [desc[0] for desc in cursor.description]
+    cursor.close()
+    conn.close()
+    return dict(zip(columns, row)) if row else None
 
-class Item(Base):
-    __tablename__ = "items"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    appid = Column(Integer, nullable=False)
-    market_hash_name = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+def model_get_groups_with_models(user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT DISTINCT group_id FROM model_index
+        WHERE user_id = ?
+    """, (user_id,))
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return [row[0] for row in rows]
 
-class Dataset(Base):
-    __tablename__ = "datasets"
-    id = Column(Integer, primary_key=True)
-    item_id = Column(Integer, ForeignKey("items.id"))
-    storage_uri = Column(String)  # s3://.../dataset.parquet
-    sha256 = Column(String, unique=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-class Model(Base):
-    __tablename__ = "models"
-    id = Column(Integer, primary_key=True)
-    item_id = Column(Integer, ForeignKey("items.id"))
-    dataset_id = Column(Integer, ForeignKey("datasets.id"))
-    artifact_uri = Column(String)  # s3://.../model.pkl
-    plot_uri = Column(String)      # s3://.../plot.png
-    mse = Column(Float)
-    r2 = Column(Float)
-    status = Column(String)        # 'ready', 'training', etc.
-    created_at = Column(DateTime, default=datetime.utcnow)
+def model_delete_model_group(user_id, group_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        DELETE FROM model_index
+        WHERE group_id = ? AND user_id = ?
+    """, (group_id, user_id))
+    conn.commit()
+    deleted = cursor.rowcount > 0
+    cursor.close()
+    conn.close()
+    return {"deleted": deleted}

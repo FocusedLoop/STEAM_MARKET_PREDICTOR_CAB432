@@ -6,3 +6,6 @@ PyJWT
 requests
 statsmodels
 scikit-learn
+matplotlib
+pyarrow
+fastparquet

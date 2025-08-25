@@ -180,34 +180,138 @@ def test_steam(token):
     print("Testing Steam endpoints...")
 
     # Top games (auth required)
-    r = requests.get(f"{BASE_URL}/group/steam/top-games", headers=auth_headers(token))
+    r = requests.get(f"{BASE_URL}/steam/top-games", headers=auth_headers(token))
     print("Get top games (auth):")
     print_response(r)
 
     # Top games (no auth)
-    r = requests.get(f"{BASE_URL}/group/steam/top-games")
+    r = requests.get(f"{BASE_URL}/steam/top-games")
     print("Get top games (no auth):")
     print_response(r)
 
     # Item history (missing params)
-    r = requests.post(f"{BASE_URL}/group/steam/item-history", headers=auth_headers(token), json={})
+    r = requests.post(f"{BASE_URL}/steam/item-history", headers=auth_headers(token), json={})
     print("Get item history (missing params):")
     print_response(r, allow_error=True)
 
     # Item history (invalid appid)
-    r = requests.post(f"{BASE_URL}/group/steam/item-history", headers=auth_headers(token), json={"appid": 999999, "item_name": "Nonexistent"})
+    r = requests.post(f"{BASE_URL}/steam/item-history", headers=auth_headers(token), json={"appid": 999999, "item_name": "Nonexistent"})
     print("Get item history (invalid appid):")
     print_response(r, allow_error=True)
 
     # Item history (valid, but may need to adjust appid/item_name for your inventory)
-    r = requests.post(f"{BASE_URL}/group/steam/item-history", headers=auth_headers(token), json={"appid": 440, "item_name": "Civic Duty Mk.II Knife (Factory New)"})
+    r = requests.post(f"{BASE_URL}/steam/item-history", headers=auth_headers(token), json={"appid": 440, "item_name": "Civic Duty Mk.II Knife (Factory New)"})
     print("Get item history (valid):")
     print_response(r)
+
+def test_group_models(token):
+    print("Testing group model endpoints...")
+
+    # 0. Create a new group
+    r = requests.post(f"{BASE_URL}/group", headers=auth_headers(token), json={"title": "Model Test Group"})
+    print("Create group for model tests:")
+    print_response(r)
+    group_id = r.json().get("id")
+    if not group_id:
+        print("Failed to create group, aborting group model tests.")
+        return
+
+    # 0.1 Load price histories
+    with open("price_history_raw_1.json") as f:
+        price_history_1 = json.load(f)
+    with open("price_history_raw_2.json") as f:
+        price_history_2 = json.load(f)
+
+    # 0.2 Add item 1
+    r = requests.post(
+        f"{BASE_URL}/group/{group_id}/items",
+        headers=auth_headers(token),
+        json={"item_name": "Test Item 1", "item_json": price_history_1}
+    )
+    print("Add item 1 to group:")
+    print_response(r)
+    item_id_1 = "147"
+
+    # 0.3 Add item 2
+    r = requests.post(
+        f"{BASE_URL}/group/{group_id}/items",
+        headers=auth_headers(token),
+        json={"item_name": "Test Item 2", "item_json": price_history_2}
+    )
+    print("Add item 2 to group:")
+    print_response(r)
+    item_id_2 = "148"
+
+    # 1. Train model (missing group_id)
+    r = requests.post(f"{BASE_URL}/group/train", headers=auth_headers(token), json={})
+    print("Train model (missing group_id):")
+    print_response(r, allow_error=True)
+
+    # 2. Train model (valid)
+    r = requests.post(f"{BASE_URL}/group/train", headers=auth_headers(token), json={"group_id": group_id})
+    print("Train model (valid):")
+    print_response(r)
+
+    # 3. Get group models (invalid group_id)
+    r = requests.get(f"{BASE_URL}/group/999999/model", headers=auth_headers(token))
+    print("Get group models (invalid group_id):")
+    print_response(r, allow_error=True)
+
+    # 4. Get group models (valid group_id)
+    r = requests.get(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token))
+    print("Get group models (valid group_id):")
+    print_response(r)
+
+    # 5. Predict (missing fields)
+    r = requests.post(f"{BASE_URL}/group/{group_id}/predict", headers=auth_headers(token), json={})
+    print("Predict (missing fields):")
+    print_response(r, allow_error=True)
+
+    # 6. Predict (invalid item_id)
+    r = requests.post(
+        f"{BASE_URL}/group/{group_id}/predict",
+        headers=auth_headers(token),
+        json={"item_id": 999999, "start_time": "2025-01-01", "end_time": "2025-12-31"}
+    )
+    print("Predict (invalid item_id):")
+    print_response(r, allow_error=True)
+
+    # 7. Predict (valid) for both items
+    print(item_id_1, item_id_2)
+    for item_id in [item_id_1, item_id_2]:
+        r = requests.post(
+            f"{BASE_URL}/group/{group_id}/predict",
+            headers=auth_headers(token),
+            json={"item_id": item_id, "start_time": "2025-07-14", "end_time": "2025-10-18"}
+        )
+        print(f"Predict (valid) for item {item_id}:")
+        print(f"Status: {r.status_code}")
+        if r.status_code == 200 and r.headers.get("content-type") == "image/png":
+            print("Received PNG image.")
+        else:
+            print_response(r)
+        print("-" * 40)
+
+    # 8. Delete group model (invalid group_id)
+    r = requests.delete(f"{BASE_URL}/group/999999/model", headers=auth_headers(token), json={"group_id": 999999})
+    print("Delete group model (invalid group_id):")
+    print_response(r, allow_error=True)
+
+    # 9. Delete group model (valid group_id)
+    r = requests.delete(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token), json={"group_id": group_id})
+    print("Delete group model (valid group_id):")
+    print_response(r)
+
+    # 10. Delete group model (already deleted)
+    r = requests.delete(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token), json={"group_id": group_id})
+    print("Delete group model (already deleted):")
+    print_response(r, allow_error=True)
 
 if __name__ == "__main__":
     token = get_auth_token()
     if not token:
         print("Could not get auth token, aborting tests.")
     else:
-        test_groups(token)
+        item_id = test_groups(token)
         test_steam(token)
+        test_group_models(token)

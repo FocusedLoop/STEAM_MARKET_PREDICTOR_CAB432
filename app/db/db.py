@@ -64,6 +64,26 @@ def create_group_items_table(conn):
         );
     """)
     conn.commit()
+
+# Create model index table
+def create_model_index_table(conn):
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS model_index (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            user_id INT NOT NULL,
+            group_id INT NOT NULL,  -- NEW COLUMN
+            item_id INT NOT NULL,
+            data_hash VARCHAR(32) NOT NULL,
+            model_path VARCHAR(255) NOT NULL,
+            scaler_path VARCHAR(255) NOT NULL,
+            stats_path VARCHAR(255) NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+            FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
+        );
+    """)
+    conn.commit()
     
 # Initialize the database and create the tasks table if it doesn't exist
 def init_db():
@@ -73,6 +93,7 @@ def init_db():
     create_user_table(conn)
     create_groups_table(conn)
     create_group_items_table(conn)
+    create_model_index_table(conn)
     print("Database initialized and tasks table ensured.")
   except Exception as e:
     print(f"DB init failed: {e}")

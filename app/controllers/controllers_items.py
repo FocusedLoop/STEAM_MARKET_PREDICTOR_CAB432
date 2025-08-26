@@ -1,8 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
-#from httpcore import request
 from app.auth.jwt import authenticate_token
-from app.services import steamAPI
 from app.models import (
   model_get_all_groups,
   model_get_group_by_id,
@@ -105,42 +103,6 @@ def get_group_by_id(group_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Get top games for the authenticated user
-async def get_steam_top_games(user=Depends(authenticate_token)):
-    try:
-        steam = steamAPI(user["steam_id"])
-        top_games = steam.find_suitable_games()
-        return JSONResponse(content=top_games)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Get price history for a specific item
-async def get_steam_item_history(request: Request, user=Depends(authenticate_token)):
-    try:
-        data = await request.json()
-        appid = data.get("appid")
-        item_name = data.get("item_name")
-        if not appid or not item_name:
-            raise HTTPException(status_code=400, detail="App Id and Item name is required")
-        
-        steam = steamAPI(user["steam_id"])
-        try:
-            item_info = steam.search_item(appid, item_name)
-        except ValueError as e:
-            raise HTTPException(status_code=404, detail=str(e))
-        if not item_info or not item_info.get("market_hash_name"):
-            raise HTTPException(status_code=404, detail="Item not found in inventory")
-        
-        item_history_url = steam.generate_price_history_url(
-            appid=appid,
-            marker_hash=item_info["market_hash_name"],
-        )
-        return JSONResponse(content={"price_history_url": item_history_url})
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 # Get all items in a group
 async def get_group_items(group_id: int, user=Depends(authenticate_token)):
     try:
@@ -148,72 +110,3 @@ async def get_group_items(group_id: int, user=Depends(authenticate_token)):
         return JSONResponse(content=items)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-# MAYBE MAKE SO USER CAN ONLY HAVE ONE MODEL AT A TIME
-
-# STEAM
-# Get top games - Get a list of top games
-# Get top inventory items from a game - Get a list of top inventory items from a game
-# Get price history - Get the price history of an item > Returns a Link to get the price history
-
-# ITEMS - DB
-# Create Item Group - Create a new item group
-# Update Item group - Update an existing item group with a new price history for an item
-# DELETE Item Group - Delete an existing item group
-# GET Item Group - Get details of a specific item group
-
-# CREATE MODEL - PKL file with User ID
-# Generate Item Group Model - Generate price models for a group of items (item_group) > Returns a group of price history graphs
-# Generate Item Model - Generate price model for a specific item ({price history}}) > Returns a Graph of the price history
-
-# MAKE PREDICTION - GRAPH
-# Generate Item Group Prediction - Generate price predictions for a group of items (start, end)
-# Generate Item Price Prediction - Generate price predictions for a specific item (start, end)
-
-
-# OLD
-# def get_all_tasks():
-#   try:
-#     return JSONResponse(content=get_all())
-#   except Exception as e:
-#     raise HTTPException(status_code=500, detail=str(e))
-
-# def get_task_by_id(task_id: int):
-#   try:
-#     result = get_by_id(task_id)
-#     if not result:
-#       raise HTTPException(status_code=404, detail="Task not found")
-#     return JSONResponse(content=result)
-#   except Exception as e:
-#     raise HTTPException(status_code=500, detail=str(e))
-
-# async def create_task(request: Request, user=Depends(authenticate_token)):
-#   data = await request.json()
-#   title = data.get("title")
-#   if not title:
-#     raise HTTPException(status_code=400, detail="Title is required")
-#   try:
-#     return create(title)
-#   except Exception as e:
-#     raise HTTPException(status_code=500, detail=str(e))
-
-# async def update_task(task_id: int, request: Request, user=Depends(authenticate_token)):
-#   data = await request.json()
-#   title = data.get("title")
-#   completed = data.get("completed", False)
-#   try:
-#     result = update(task_id, title, completed)
-#     if not result.get("updated"):
-#       raise HTTPException(status_code=404, detail="Task not found")
-#     return {"message": "Task updated"}
-#   except Exception as e:
-#     raise HTTPException(status_code=500, detail=str(e))
-
-# def delete_task(task_id: int, user=Depends(authenticate_token)):
-#   try:
-#     result = remove(task_id)
-#     if not result.get("deleted"):
-#       raise HTTPException(status_code=404, detail="Task not found")
-#     return {"message": "Task deleted"}
-#   except Exception as e:
-#     raise HTTPException(status_code=500, detail=str(e))

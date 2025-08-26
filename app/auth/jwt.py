@@ -8,6 +8,7 @@ from datetime import timezone
 SECRET_KEY = os.environ.get("JWT_SECRET")
 security = HTTPBearer()
 
+# Create a JWT access token for the user
 def generate_access_token(user_id, username, steam_id):
     payload = {
         'user_id': user_id,
@@ -17,6 +18,7 @@ def generate_access_token(user_id, username, steam_id):
     }
     return jwt.encode(payload, SECRET_KEY, algorithm='HS256')
 
+# Check that the JWT access token is valid
 def authenticate_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     if not credentials or credentials.scheme != 'Bearer':
         raise HTTPException(status_code=401, detail='Unauthorized')

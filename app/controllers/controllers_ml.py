@@ -1,9 +1,10 @@
 from fastapi import HTTPException, Depends, Request
 from fastapi.responses import Response
 from app.auth.jwt import authenticate_token
-from app.utils.model_utils import PriceModel
-from app.models import model_save_model_index, model_get_model_index, model_get_group_items, model_get_groups_with_models, model_get_group_by_id, model_delete_model_group
+from app.utils.ml_utils import PriceModel
+from app.models import model_save_model_index, model_get_model_index, model_get_group_items, model_get_group_by_id, model_delete_model_index
 
+# Handle training groups of models, go through each item in the group and train them
 async def group_train_model(request: Request, user=Depends(authenticate_token)):
     try:
         data = await request.json()
@@ -19,10 +20,8 @@ async def group_train_model(request: Request, user=Depends(authenticate_token)):
         for item in group_items:
             item_id = item["id"]
             item_json = item.get("item_json", {})
-            #print("DEBUG item_json:", item_json)
             price_history = item_json.get("prices")
             price_history = {"prices": price_history}
-            #print("DEBUG price_history:", price_history, type(price_history))
 
             # TODO: Add a json structure validation
 
@@ -48,6 +47,7 @@ async def group_train_model(request: Request, user=Depends(authenticate_token)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to train models for group: {str(e)}")
 
+# Get a group that have generated models
 async def get_group_with_models(group_id: int, user=Depends(authenticate_token)):
     try:
         group = model_get_group_by_id(group_id)
@@ -79,9 +79,10 @@ async def get_group_with_models(group_id: int, user=Depends(authenticate_token))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch group with models: {str(e)}")
 
+# Delete group that have generated models
 async def delete_group_model(group_id: int, user=Depends(authenticate_token)):
     try:
-        result = model_delete_model_group(user["user_id"], group_id)
+        result = model_delete_model_index(user["user_id"], group_id)
         print(result)
         if result.get("deleted"):
             return {"success": True, "message": "Models deleted for group", "group_id": group_id}

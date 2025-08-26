@@ -26,6 +26,7 @@ def get_connection():
     print("Failed to connect to MariaDB after 10 attempts. Exiting.")
     sys.exit(1)
 
+# Create user table
 def create_user_table(conn):
     cursor = conn.cursor()
     cursor.execute("""

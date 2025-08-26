@@ -3,7 +3,7 @@ load_dotenv()
 
 from fastapi import FastAPI
 from app.routes import router_items, router_users, router_steam
-import os
+import uvicorn, os
 
 SITE_PORT = os.environ.get("SITE_PORT")
 
@@ -19,5 +19,4 @@ app.include_router(router_steam, prefix="/steam")
 app.include_router(router_users, prefix="/users")
 
 if __name__ == "__main__":
-  import uvicorn
   uvicorn.run(app, host="0.0.0.0", port=SITE_PORT)

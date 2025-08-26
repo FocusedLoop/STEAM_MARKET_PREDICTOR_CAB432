@@ -8,20 +8,12 @@ from typing import Optional
 STEAM_COM_BASE = "https://steamcommunity.com"
 STEAM_API_BASE = "https://api.steampowered.com"
 API_KEY = os.getenv("STEAM_API_KEY", "74540CE2420D90E0816FBA44B026B141")
-STEAMID = "76561198281140980"
-
-
-SAMPLE_GAME = "440"
-SAMPLE_CLASS_ID = 2570543230
-SAMPLE_INSTANCE_ID = 4950542612
-SAMPLE_HASH = "Civic Duty Mk.II Knife (Factory New)"
-
-COOKIES = {
-    'sessionid': 'ff9f380482882503ad448476',
-    'steamLoginSecure': '76561198281140980%7C%7CeyAidHlwIjogIkpXVCIsICJhbGciOiAiRWREU0EiIH0.eyAiaXNzIjogInI6MDAwOV8yNkM2QzM5OV9CNzdBNSIsICJzdWIiOiAiNzY1NjExOTgyODExNDA5ODAiLCAiYXVkIjogWyAid2ViOnN0b3JlIiBdLCAiZXhwIjogMTc1NTIzMjQxNSwgIm5iZiI6IDE3NDY1MDU1MjUsICJpYXQiOiAxNzU1MTQ1NTI1LCAianRpIjogIjAwMDNfMjZDNkM0QzNfQUY2N0QiLCAib2F0IjogMTc1NTE0NTUyNSwgInJ0X2V4cCI6IDE3NzMyNzU4MTcsICJwZXIiOiAwLCAiaXBfc3ViamVjdCI6ICIxMDEuMTgwLjIwMC40NyIsICJpcF9jb25maXJtZXIiOiAiMTAxLjE4MC4yMDAuNDciIH0.6cV1cXgwcGxUv-eztM9XAh-PDBOYdpalShFBNp3kOk9HHhl1jT3fuPgnkxQLBokvXmipLv_qyRV_2P0h6G3-AQ'
-}
 
 class steamAPI:
+    """
+    A simple class for interacting with the Steam Web API and Steam Community.
+    Provides methods to fetch user games, inventory, item details, and generate price history URLs.
+    """
     def __init__(self, steam_id: int):
         self.steam_com_base = STEAM_COM_BASE
         self.steam_api_base = STEAM_API_BASE
@@ -64,6 +56,8 @@ class steamAPI:
         response = requests.get(url, params=params)
         response.raise_for_status()
         data = response.json()
+
+        # Get the results and search through the key items for the market hash name
         result = data.get("result", {})
         result_keys = [k for k in result.keys() if k != "success"]
         if not result_keys:
@@ -107,6 +101,7 @@ class steamAPI:
         else:
             raise ValueError("You must provide either marker_hash or both classid and instanceid.")
 
+        # Return a steam market price history URL
         url = f"{self.steam_com_base}/market/pricehistory/"
         params = {
             "appid": appid,
@@ -119,6 +114,8 @@ class steamAPI:
     def search_item(self, appid: int, item_name: str):
         inventory = self._get_inventory(appid)
         descriptions = inventory.get("descriptions", [])
+
+        # Search for the market hash name
         for desc in descriptions:
             if item_name.lower() in desc.get("market_hash_name", "").lower() or \
             item_name.lower() in desc.get("name", "").lower():
@@ -133,6 +130,7 @@ class steamAPI:
         return None
 
     # Get the top N inventory items
+    # NOTE: This is not is use currently, maybe for assignment 2??
     def get_top_inventory_items(self, appid: int, top_n=5, tradable_only=True):
         inventory = self._get_inventory(appid)
         descriptions = inventory.get("descriptions", [])
@@ -154,7 +152,14 @@ class steamAPI:
                     break
         return result
 
+# TESTING
 if __name__ == "__main__":
+    STEAMID = "76561198281140980"
+    SAMPLE_GAME = "440"
+    SAMPLE_CLASS_ID = 2570543230
+    SAMPLE_INSTANCE_ID = 4950542612
+    SAMPLE_HASH = "Civic Duty Mk.II Knife (Factory New)"
+
     steam = steamAPI(STEAMID)
     games = steam._get_game_list()
     inventory = steam._get_inventory(SAMPLE_GAME)

@@ -2,6 +2,7 @@ from fastapi import Request, HTTPException
 from app.models import model_get_user_by_username, model_get_user_id_by_username, model_get_steam_id_by_username, model_create_user
 from app.auth.jwt import generate_access_token
 
+# Handle user login
 async def login(request: Request):
     data = await request.json()
     username = data.get('username')
@@ -15,6 +16,7 @@ async def login(request: Request):
     token = generate_access_token(user_id, username, steam_id)
     return { 'authToken': token }
 
+# Handle user sign up
 async def sign_up(request: Request):
     data = await request.json()
     username = data.get('username')

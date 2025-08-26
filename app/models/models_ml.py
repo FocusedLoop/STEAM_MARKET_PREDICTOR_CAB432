@@ -1,10 +1,12 @@
 from app.db import get_connection
 
+# Set the has_model flag for a group
 def set_group_has_model(conn, group_id, has_model):
     cursor = conn.cursor()
     cursor.execute("UPDATE groups SET has_model = ? WHERE id = ?", (int(has_model), group_id))
     conn.commit()
 
+# Save a new model index into the database
 def model_save_model_index(user_id, group_id, item_id, data_hash, model_path, scaler_path, stats_path):
     conn = get_connection()
     cursor = conn.cursor()
@@ -26,6 +28,7 @@ def model_save_model_index(user_id, group_id, item_id, data_hash, model_path, sc
         "data_hash": data_hash,
     }
 
+# Get the model index for a specific item
 def model_get_model_index(user_id, item_id):
     conn = get_connection()
     cursor = conn.cursor()
@@ -40,21 +43,9 @@ def model_get_model_index(user_id, item_id):
     conn.close()
     return dict(zip(columns, row)) if row else None
 
-# USELESS FOR NOW REMOVE?
-def model_get_groups_with_models(user_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT DISTINCT group_id FROM model_index
-        WHERE user_id = ?
-    """, (user_id,))
-    rows = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return [row[0] for row in rows]
-
-# BUGGED SO USING DIFFERENT CHECK FOR DELETE METHOD
-def model_delete_model_group(user_id, group_id):
+# Delete a model index for a specific item
+# HACK USING DIFFERENT CHECK FOR DELETE METHOD SINCE FOREIGN KEYS PROHIBIT DETECTING ROW CHANGE
+def model_delete_model_index(user_id, group_id):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""

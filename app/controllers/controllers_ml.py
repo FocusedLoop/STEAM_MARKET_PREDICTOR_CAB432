@@ -93,6 +93,7 @@ async def delete_group_model(group_id: int, user=Depends(authenticate_token)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete models for group: {str(e)}")
 
+# Handle predicting item prices
 async def predict_item_prices(request: Request, user=Depends(authenticate_token)):
     try:
         data = await request.json()

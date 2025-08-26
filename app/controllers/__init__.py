@@ -1,5 +1,5 @@
 from .controllers_users import login, sign_up
-from .controllers_ml import group_train_model, predict_item_prices, get_groups_with_models, delete_group_model
+from .controllers_ml import group_train_model, predict_item_prices, get_group_with_models, delete_group_model
 from .controllers_items import (
     get_all_groups,
     get_group_by_id,
@@ -37,7 +37,7 @@ __all__ = [#"get_all_tasks",
            "get_group_items",
            "group_train_model",
            "predict_item_prices",
-           "get_groups_with_models",
+           "get_group_with_models",
            "delete_group_model",
            "login",
            "sign_up"

@@ -58,7 +58,6 @@ def model_remove_group(user_id, group_id):
 def model_add_item_to_group(user_id, group_id, item_name, item_json):
     conn = get_connection()
     cursor = conn.cursor()
-    # Ensure group is owned by user
     cursor.execute("SELECT id FROM groups WHERE id = ? AND user_id = ?", (group_id, user_id))
     if not cursor.fetchone():
         conn.close()
@@ -69,8 +68,9 @@ def model_add_item_to_group(user_id, group_id, item_name, item_json):
     )
     conn.commit()
     added = cursor.rowcount > 0
+    item_id = cursor.lastrowid
     conn.close()
-    return {"added": added}
+    return {"added": added, "id": item_id}
 
 # Remove an item from an existing group (must be owned by user)
 def model_remove_item_from_group(user_id, group_id, item_name):

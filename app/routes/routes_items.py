@@ -10,7 +10,7 @@ from app.controllers import (
     get_group_items,
     group_train_model,
     predict_item_prices,
-    get_groups_with_models,
+    get_group_with_models,
     delete_group_model
 )
 
@@ -38,9 +38,9 @@ router.get("/{group_id}/items")(get_group_items)
 router.delete("/{group_id}/items")(remove_item_from_group)
 
 # Group Models
-router.post("/train")(group_train_model)
+router.post("/{group_id}/train")(group_train_model)
 
-router.get("/{group_id}/model")(get_groups_with_models)
+router.get("/{group_id}/model")(get_group_with_models)
 
 router.delete("/{group_id}/model")(delete_group_model)
 

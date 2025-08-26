@@ -1,5 +1,10 @@
 from app.db import get_connection
 
+def set_group_has_model(conn, group_id, has_model):
+    cursor = conn.cursor()
+    cursor.execute("UPDATE groups SET has_model = ? WHERE id = ?", (int(has_model), group_id))
+    conn.commit()
+
 def model_save_model_index(user_id, group_id, item_id, data_hash, model_path, scaler_path, stats_path):
     conn = get_connection()
     cursor = conn.cursor()
@@ -9,6 +14,8 @@ def model_save_model_index(user_id, group_id, item_id, data_hash, model_path, sc
     """, (user_id, group_id, item_id, data_hash, model_path, scaler_path, stats_path))
     conn.commit()
     model_id = cursor.lastrowid
+    set_group_has_model(conn, group_id, True)
+
     cursor.close()
     conn.close()
     return {
@@ -33,6 +40,7 @@ def model_get_model_index(user_id, item_id):
     conn.close()
     return dict(zip(columns, row)) if row else None
 
+# USELESS FOR NOW REMOVE?
 def model_get_groups_with_models(user_id):
     conn = get_connection()
     cursor = conn.cursor()
@@ -45,15 +53,27 @@ def model_get_groups_with_models(user_id):
     conn.close()
     return [row[0] for row in rows]
 
+# BUGGED SO USING DIFFERENT CHECK FOR DELETE METHOD
 def model_delete_model_group(user_id, group_id):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
+        SELECT COUNT(*) FROM model_index WHERE group_id = %s AND user_id = %s
+    """, (group_id, user_id))
+    before_count = cursor.fetchone()[0]
+    cursor.execute("""
         DELETE FROM model_index
-        WHERE group_id = ? AND user_id = ?
+        WHERE group_id = %s AND user_id = %s
     """, (group_id, user_id))
     conn.commit()
-    deleted = cursor.rowcount > 0
+    cursor.execute("""
+        SELECT COUNT(*) FROM model_index WHERE group_id = %s AND user_id = %s
+    """, (group_id, user_id))
+    after_count = cursor.fetchone()[0]
+    deleted = before_count > after_count
+    print("Rows before:", before_count, "Rows after:", after_count, "Deleted:", deleted)
+    if deleted:
+        set_group_has_model(conn, group_id, False)
     cursor.close()
     conn.close()
     return {"deleted": deleted}

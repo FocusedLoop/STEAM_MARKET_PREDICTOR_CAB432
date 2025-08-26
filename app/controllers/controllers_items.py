@@ -23,7 +23,11 @@ async def create_group(request: Request, user=Depends(authenticate_token)):
     if not title:
         raise HTTPException(status_code=400, detail="Title is required")
     try:
-        return model_create_group(user["user_id"], title)
+        result = model_create_group(user["user_id"], title)
+        return {
+            "message": "Item added to group",
+            **result
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -37,7 +41,7 @@ async def update_group_name(group_id: int, request: Request, user=Depends(authen
         result = model_update_group(user["user_id"], group_id, title)
         if not result.get("updated"):
             raise HTTPException(status_code=404, detail="Group not found or not owned by user")
-        return {"message": "Group name updated"}
+        return {"message": f"Group name updated to {title}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -52,7 +56,10 @@ async def add_item_to_group(group_id: int, request: Request, user=Depends(authen
         result = model_add_item_to_group(user["user_id"], group_id, item_name, item_json)
         if not result.get("added"):
             raise HTTPException(status_code=404, detail="Group not found, not owned by user, or item could not be added")
-        return {"message": "Item added to group"}
+        return {
+            "message": f"Item {item_name} added to group",
+            "id": result.get("id")
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -66,7 +73,7 @@ async def remove_item_from_group(group_id: int, request: Request, user=Depends(a
         result = model_remove_item_from_group(user["user_id"], group_id, item_name)
         if not result.get("removed"):
             raise HTTPException(status_code=404, detail="Group or Item not found, or not owned by user")
-        return {"message": "Item removed from group"}
+        return {"message": f"Item {item_name} removed from group"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

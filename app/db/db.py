@@ -46,6 +46,7 @@ def create_groups_table(conn):
             id INT PRIMARY KEY AUTO_INCREMENT,
             group_name VARCHAR(255) NOT NULL,
             user_id INT NOT NULL,
+            has_model BOOLEAN NOT NULL DEFAULT 0,
             FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
         );
     """)
@@ -72,7 +73,7 @@ def create_model_index_table(conn):
         CREATE TABLE IF NOT EXISTS model_index (
             id INT PRIMARY KEY AUTO_INCREMENT,
             user_id INT NOT NULL,
-            group_id INT NOT NULL,  -- NEW COLUMN
+            group_id INT NOT NULL,
             item_id INT NOT NULL,
             data_hash VARCHAR(32) NOT NULL,
             model_path VARCHAR(255) NOT NULL,
@@ -101,15 +102,3 @@ def init_db():
     conn.close()
 
 init_db()
-
-
-# def create_tasks_table(conn):
-#     cursor = conn.cursor()
-#     cursor.execute("""
-#         CREATE TABLE IF NOT EXISTS tasks (
-#             id INT PRIMARY KEY AUTO_INCREMENT,
-#             title VARCHAR(255) NOT NULL,
-#             completed TINYINT DEFAULT 0
-#         );
-#     """)
-#     conn.commit()

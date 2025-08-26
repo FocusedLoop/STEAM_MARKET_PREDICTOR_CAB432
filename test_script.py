@@ -34,7 +34,9 @@ def print_response(r, allow_error=False):
     except Exception:
         print(r.text)
     print("-" * 40)
-    # Only exit if not allowed and status is 400/500 (but not 405)
+    if allow_error and r.status_code == 200:
+        print("Expected error, but got success (200). Exiting test script.")
+        sys.exit(1)
     if not allow_error and (r.status_code == 500 or r.status_code == 400 or r.status_code == 404) and r.status_code != 405:
         print("Error encountered, exiting test script.")
         sys.exit(1)
@@ -87,7 +89,7 @@ def test_groups(token):
         # Update group (valid)
         r = requests.put(f"{BASE_URL}/group/{group_id}", headers=auth_headers(token), json={"title": "Renamed Group"})
         print("Update group (valid):")
-        print_response(r, allow_error=True)
+        print_response(r)
 
     # Get all groups (no auth)
     r = requests.get(f"{BASE_URL}/group")
@@ -230,7 +232,7 @@ def test_group_models(token):
     )
     print("Add item 1 to group:")
     print_response(r)
-    item_id_1 = "147"
+    item_id_1 = r.json().get("id")
 
     # 0.3 Add item 2
     r = requests.post(
@@ -240,7 +242,7 @@ def test_group_models(token):
     )
     print("Add item 2 to group:")
     print_response(r)
-    item_id_2 = "148"
+    item_id_2 = r.json().get("id")
 
     # 1. Train model (missing group_id)
     r = requests.post(f"{BASE_URL}/group/train", headers=auth_headers(token), json={})
@@ -248,26 +250,31 @@ def test_group_models(token):
     print_response(r, allow_error=True)
 
     # 2. Train model (valid)
-    r = requests.post(f"{BASE_URL}/group/train", headers=auth_headers(token), json={"group_id": group_id})
+    r = requests.post(f"{BASE_URL}/group/{group_id}/train", headers=auth_headers(token), json={"group_id": group_id})
     print("Train model (valid):")
     print_response(r)
 
-    # 3. Get group models (invalid group_id)
+    # 3. Get all models (valid) -- if you have an endpoint for all models, otherwise skip
+    # r = requests.get(f"{BASE_URL}/group/model", headers=auth_headers(token))
+    # print("Get all models (valid):")
+    # print_response(r)
+
+    # 4. Get group models (invalid group_id)
     r = requests.get(f"{BASE_URL}/group/999999/model", headers=auth_headers(token))
     print("Get group models (invalid group_id):")
     print_response(r, allow_error=True)
 
-    # 4. Get group models (valid group_id)
+    # 5. Get group models (valid group_id)
     r = requests.get(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token))
     print("Get group models (valid group_id):")
     print_response(r)
 
-    # 5. Predict (missing fields)
+    # 6. Predict (missing fields)
     r = requests.post(f"{BASE_URL}/group/{group_id}/predict", headers=auth_headers(token), json={})
     print("Predict (missing fields):")
     print_response(r, allow_error=True)
 
-    # 6. Predict (invalid item_id)
+    # 7. Predict (invalid item_id)
     r = requests.post(
         f"{BASE_URL}/group/{group_id}/predict",
         headers=auth_headers(token),
@@ -276,7 +283,7 @@ def test_group_models(token):
     print("Predict (invalid item_id):")
     print_response(r, allow_error=True)
 
-    # 7. Predict (valid) for both items
+    # 8. Predict (valid) for both items
     print(item_id_1, item_id_2)
     for item_id in [item_id_1, item_id_2]:
         r = requests.post(
@@ -292,18 +299,18 @@ def test_group_models(token):
             print_response(r)
         print("-" * 40)
 
-    # 8. Delete group model (invalid group_id)
+    # 9. Delete group model (invalid group_id)
     r = requests.delete(f"{BASE_URL}/group/999999/model", headers=auth_headers(token), json={"group_id": 999999})
     print("Delete group model (invalid group_id):")
     print_response(r, allow_error=True)
 
-    # 9. Delete group model (valid group_id)
-    r = requests.delete(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token), json={"group_id": group_id})
+    # 10. Delete group model (valid group_id)
+    r = requests.delete(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token))
     print("Delete group model (valid group_id):")
     print_response(r)
 
-    # 10. Delete group model (already deleted)
-    r = requests.delete(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token), json={"group_id": group_id})
+    # 11. Delete group model (already deleted)
+    r = requests.delete(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token))
     print("Delete group model (already deleted):")
     print_response(r, allow_error=True)
 

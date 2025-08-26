@@ -47,43 +47,42 @@ async def group_train_model(request: Request, user=Depends(authenticate_token)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to train models for group: {str(e)}")
-    
-async def get_groups_with_models(user=Depends(authenticate_token)):
-    try:
-        group_ids = model_get_groups_with_models(user["user_id"])
-        result = []
-        for group_id in group_ids:
-            group = model_get_group_by_id(group_id)
-            if not group:
-                continue
-            items = model_get_group_items(user["user_id"], group_id)
-            items_with_models = []
-            for item in items:
-                item_id = item["id"]
-                item_name = item["item_name"]
-                model_info = model_get_model_index(user["user_id"], item_id)
-                if model_info:
-                    items_with_models.append({
-                        "item_id": item_id,
-                        "item_name": item_name
-                    })
-            if items_with_models:
-                result.append({
-                    "group_id": group_id,
-                    "group_name": group["group_name"],
-                    "items": items_with_models
-                })
-        return {"groups": result}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch groups with models: {str(e)}")
 
-async def delete_group_model(request: Request, user=Depends(authenticate_token)):
+async def get_group_with_models(group_id: int, user=Depends(authenticate_token)):
     try:
-        data = await request.json()
-        group_id = data.get("group_id")
-        if not group_id:
-            raise HTTPException(status_code=400, detail="group_id is required")
+        group = model_get_group_by_id(group_id)
+        if not group or group.get("user_id") != user["user_id"]:
+            raise HTTPException(status_code=404, detail="Group not found")
+
+        items = model_get_group_items(user["user_id"], group_id)
+        items_with_models = []
+        for item in items:
+            item_id = item["id"]
+            item_name = item["item_name"]
+            model_info = model_get_model_index(user["user_id"], item_id)
+            if model_info:
+                items_with_models.append({
+                    "item_id": item_id,
+                    "item_name": item_name
+                })
+
+        if not items_with_models:
+            raise HTTPException(status_code=404, detail="No generated models found for this group")
+
+        return {
+            "group_id": group_id,
+            "group_name": group["group_name"],
+            "items": items_with_models
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch group with models: {str(e)}")
+
+async def delete_group_model(group_id: int, user=Depends(authenticate_token)):
+    try:
         result = model_delete_model_group(user["user_id"], group_id)
+        print(result)
         if result.get("deleted"):
             return {"success": True, "message": "Models deleted for group", "group_id": group_id}
         else:
@@ -108,14 +107,14 @@ async def predict_item_prices(request: Request, user=Depends(authenticate_token)
             raise HTTPException(status_code=404, detail="Model not found for user/item")
 
         model = PriceModel(user["user_id"], item_id)
-        prediction_df = model.generate_prediction(
+        prediction = model.generate_prediction(
             start_time,
             end_time,
             model_info["model_path"],
             model_info["scaler_path"],
             model_info["stats_path"]
         )
-        img_bytes = model._generate_prediction_graph(prediction_df)
+        img_bytes = model._generate_prediction_graph(prediction["result"])
         return Response(content=img_bytes, media_type="image/png")
     except HTTPException:
         raise

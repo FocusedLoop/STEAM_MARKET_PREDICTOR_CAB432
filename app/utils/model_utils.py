@@ -132,6 +132,7 @@ class PriceModel:
     # Generate prediction graph for a given predicitions
     def _generate_prediction_graph(self, prediction_df):
         #os.makedirs(self.GRAPH_DIR, exist_ok=True)
+        print("PPASED")
         buf = io.BytesIO()
         plt.figure(figsize=(12, 6))
         plt.plot(prediction_df['time'], prediction_df['predicted_price'], label='Predicted Price', marker='x')
@@ -197,7 +198,7 @@ class PriceModel:
             raise RuntimeError(f"Error in create_model: {e}")
 
     # Generate a prediction given a time range
-    def generate_prediction(self, start_time, end_time, model_path, scaler_path, stats_path):
+    def generate_prediction(self, start_time, end_time, model_path=None, scaler_path=None, stats_path=None):
         try:
             # Load model artifacts
             if not all([model_path, scaler_path, stats_path]):
@@ -215,6 +216,7 @@ class PriceModel:
                 feature_means = json.load(f)
 
             # Create prediction DataFrame
+            print("PASSED")
             times = pd.date_range(start=start_time, end=end_time, freq='D')
             X_pred = pd.DataFrame({
                 "time_numeric": times.astype('int64') // 10**9,
@@ -228,14 +230,16 @@ class PriceModel:
                 "price_diff": np.full(len(times), feature_means["price_diff"]),
                 "volume_rolling_mean_7": np.full(len(times), feature_means["volume_rolling_mean_7"])
             })
-
+            print("PASSED")
             # Normalize and make a prediction from the model
             X_pred_scaled = scaler.transform(X_pred)
             predicted_prices = pipe.predict(X_pred_scaled)
+            print(f"PASSED {times}")
             result = pd.DataFrame({
                 "time": times,
                 "predicted_price": predicted_prices
             })
+            print("PASSED")
             graph = self._generate_prediction_graph(result)
             return { "result": result, "graph": graph }
         except Exception as e:

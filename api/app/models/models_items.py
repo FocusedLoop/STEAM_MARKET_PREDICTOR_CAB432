@@ -12,7 +12,7 @@ def model_get_all_groups():
     return [dict(zip(columns, row)) for row in rows]
 
 # Get all items in a group by group_id
-def model_get_group_by_id(group_id):
+def model_get_group_by_id(group_id: int):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM groups WHERE id = ?", (group_id,))
@@ -22,7 +22,7 @@ def model_get_group_by_id(group_id):
     return dict(zip(columns, row)) if row else None
 
 # Create a new group for a user
-def model_create_group(user_id, group_name):
+def model_create_group(user_id: int, group_name: str):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("INSERT INTO groups (group_name, user_id) VALUES (?, ?)", (group_name, user_id))
@@ -32,7 +32,7 @@ def model_create_group(user_id, group_name):
     return {"id": group_id, "user_id": user_id, "group_name": group_name}
 
 # Update an existing group's name (only if owned by user)
-def model_update_group(user_id, group_id, group_name):
+def model_update_group(user_id: int, group_id: int, group_name: str):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
@@ -45,7 +45,7 @@ def model_update_group(user_id, group_id, group_name):
     return {"updated": updated}
 
 # Remove an existing group (only if owned by user)
-def model_remove_group(user_id, group_id):
+def model_remove_group(user_id: int, group_id: int):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM groups WHERE id = ? AND user_id = ?", (group_id, user_id))
@@ -55,7 +55,7 @@ def model_remove_group(user_id, group_id):
     return {"deleted": deleted}
 
 # Add an item to an existing group (must be owned by user)
-def model_add_item_to_group(user_id, group_id, item_name, item_json):
+def model_add_item_to_group(user_id: int, group_id: int, item_name: str, item_json: dict):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM groups WHERE id = ? AND user_id = ?", (group_id, user_id))
@@ -73,7 +73,7 @@ def model_add_item_to_group(user_id, group_id, item_name, item_json):
     return {"added": added, "id": item_id}
 
 # Remove an item from an existing group (must be owned by user)
-def model_remove_item_from_group(user_id, group_id, item_name):
+def model_remove_item_from_group(user_id: int, group_id: int, item_name: str):
     conn = get_connection()
     cursor = conn.cursor()
     # Ensure group is owned by user
@@ -91,15 +91,17 @@ def model_remove_item_from_group(user_id, group_id, item_name):
     return {"removed": removed}
 
 # Get all items in a group (must be owned by user)
-def model_get_group_items(user_id, group_id):
+def model_get_group_items(user_id: int, group_id: int):
+    print(user_id, group_id)
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT gi.* FROM group_items gi
-        JOIN groups g ON gi.group_id = g.id
-        WHERE g.user_id = ? AND gi.group_id = ?
+        SELECT group_items.* FROM group_items
+        JOIN groups ON group_items.group_id = groups.id
+        WHERE groups.user_id = ? AND group_items.group_id = ?
     """, (user_id, group_id))
     rows = cursor.fetchall()
+    print(rows)
     columns = [desc[0] for desc in cursor.description]
     conn.close()
     items = [dict(zip(columns, row)) for row in rows]

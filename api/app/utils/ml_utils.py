@@ -11,6 +11,27 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import os, json
 
+# Validate json price history structure
+def validate_price_history(price_history: dict):
+    if not isinstance(price_history, dict):
+        return False, "Price history must be a dictionary"
+    prices = price_history.get("prices")
+    if not isinstance(prices, list) or not prices:
+        return False, "Missing or invalid 'prices' list"
+    for entry in prices:
+        if not (isinstance(entry, list) and len(entry) == 3):
+            return False, "Each price entry must be a list of [date, price, quantity]"
+        date, price, quantity = entry
+        if not isinstance(date, str):
+            return False, "Date must be a string"
+        try:
+            float(price)
+        except (ValueError, TypeError):
+            return False, "Price must be a number"
+        if not (isinstance(quantity, (str, int))):
+            return False, "Quantity must be a string or integer"
+    return True, ""
+
 class PriceModel:
     """
     PriceModel provides methods to train, save, and use a machine learning model for predicting item prices over time.
@@ -27,13 +48,15 @@ class PriceModel:
         "is_weekend", "price_rolling_mean_7", "price_diff", "volume_rolling_mean_7"
     ]
 
-    def __init__(self, user_id, item_id):
+    def __init__(self, user_id: int, username: str, item_id: int, item_name: str):
         self.user_id = user_id
+        self.username = username
         self.item_id = item_id
+        self.item_name = item_name
 
     # Normalize price data
     @staticmethod
-    def _normalize_prices(raw_prices):
+    def _normalize_prices(raw_prices: list):
         # Create dataframe for primary features
         df = pd.DataFrame(raw_prices)
         df[['time', 'price', 'volume']] = pd.DataFrame(df['prices'].tolist(), index=df.index)
@@ -41,7 +64,7 @@ class PriceModel:
         df['time'] = df['time'].astype(str)
         df['time'] = df['time'].str.replace(r' \+0$', '', regex=True)
         df['time'] = df['time'].str.replace(r':$', '', regex=True)
-        df['time'] = pd.to_datetime(df['time'])
+        df['time'] = pd.to_datetime(df['time'], format="%b %d %Y %H")
         df['time_numeric'] = df['time'].astype('int64') // 10**9
         df["volume"] = pd.to_numeric(df["volume"], errors="coerce").fillna(0)
         df = df.sort_values("time")
@@ -60,9 +83,9 @@ class PriceModel:
 
     # Generate hash for dataset
     @staticmethod
-    def _hash_dataset(user_id, item_id, timestamp, df: pd.DataFrame) -> str:
+    def _hash_dataset(user_id: int, item_id: int, timestamp: int, df: pd.DataFrame):
         buf = io.BytesIO()
-        df_sorted = df.sort_values("time")
+        #df_sorted = df.sort_values("time")
         df[PriceModel.FEATURE_COLS + ["price"]].to_parquet(buf, index=False)
         hash_input = (
             str(user_id).encode("utf-8") +
@@ -73,7 +96,7 @@ class PriceModel:
         return hashlib.sha256(hash_input).hexdigest()[:16]
 
     # Train and evaluate model
-    def _train_and_eval(self, raw_prices):
+    def _train_and_eval(self, raw_prices: str):
         # Normalize
         df = self._normalize_prices(raw_prices)
         X = df[self.FEATURE_COLS]
@@ -97,7 +120,7 @@ class PriceModel:
     
 
     # Generate training graph to display model performance
-    def _generate_training_graph(self, json_obj):
+    def _generate_training_graph(self, json_obj: str):
         # Load model artifacts and setup dataframe
         pipe = joblib.load(self.model_path)
         scaler = joblib.load(self.scaler_path)
@@ -119,11 +142,11 @@ class PriceModel:
         plt.plot(df['time'], pred, label='Predicted Price', marker='x')
         plt.xlabel('Time')
         plt.ylabel('Price')
-        plt.title(f'Actual vs Predicted Price for user {self.user_id}, item {self.item_id}')
+        plt.title(f'Actual vs Predicted Price for user {self.username}, item {self.item_name}')
         plt.legend()
         plt.tight_layout()
 
-        # plot_path = os.path.join(self.GRAPH_DIR, f"model_training_{self.user_id}_{self.item_id}.png")
+        # plot_path = os.path.join(self.GRAPH_DIR, f"model_training_{self.username}_{self.item_id}.png")
         # plt.savefig(plot_path)
         # plt.close()
         # print(f"Graph saved to {plot_path}")
@@ -135,7 +158,7 @@ class PriceModel:
         return buf.getvalue()
 
     # Generate prediction graph for a given predicitions
-    def _generate_prediction_graph(self, prediction_df):
+    def _generate_prediction_graph(self, prediction_df: pd.DataFrame):
         #os.makedirs(self.GRAPH_DIR, exist_ok=True)
         print("PPASED")
         buf = io.BytesIO()
@@ -143,11 +166,11 @@ class PriceModel:
         plt.plot(prediction_df['time'], prediction_df['predicted_price'], label='Predicted Price', marker='x')
         plt.xlabel('Time')
         plt.ylabel('Predicted Price')
-        plt.title(f'Predicted Price for user {self.user_id}, item {self.item_id}')
+        plt.title(f'Predicted Price for user {self.username}, item {self.item_name}')
         plt.legend()
         plt.tight_layout()
 
-        #plot_path = os.path.join(self.GRAPH_DIR, f"price_prediction_{self.user_id}_{self.item_id}.png")
+        #plot_path = os.path.join(self.GRAPH_DIR, f"price_prediction_{self.username}_{self.item_id}.png")
         # plt.savefig(plot_path)
         # plt.close()
         # print(f"Prediction graph saved to {plot_path}")
@@ -159,7 +182,7 @@ class PriceModel:
         return buf.getvalue()
     
     # Create model from raw price data
-    def create_model(self, raw_prices):
+    def create_model(self, raw_prices: str):
         try:
             df = self._normalize_prices(raw_prices)
             time_stamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
@@ -207,7 +230,7 @@ class PriceModel:
             raise RuntimeError(f"Error in create_model: {e}")
 
     # Generate a prediction given a time range
-    def generate_prediction(self, start_time, end_time, model_path=None, scaler_path=None, stats_path=None):
+    def generate_prediction(self, start_time: str, end_time: str, model_path: str = None, scaler_path: str = None, stats_path: str = None):
         try:
             # Load model artifacts
             if not all([model_path, scaler_path, stats_path]):

@@ -9,7 +9,7 @@ SECRET_KEY = os.environ.get("JWT_SECRET")
 security = HTTPBearer()
 
 # Create a JWT access token for the user
-def generate_access_token(user_id, username, steam_id):
+def generate_access_token(user_id: int, username: str, steam_id: int):
     payload = {
         'user_id': user_id,
         'username': username,

@@ -1,25 +1,4 @@
-# import requests
-# import time
-
-# url = "http://3.90.236.235:3018/tasks/"
-# numberOfRequests = 500
-
-# totalTime = 0
-
-# def time_ms():
-#     return round(time.time() * 1000)
-
-# for i in range(numberOfRequests):
-#     startTime = time_ms()
-#     response = requests.get(url)
-#     request_time = time_ms() - startTime
-#     totalTime += request_time
-
-#     print(f'Request {i + 1} returned with status: {response.status_code} in {request_time}ms')
-
-# print(f'Average time {totalTime / numberOfRequests}')
-
-import requests, json, sys
+import requests, json, sys, time
 
 #BASE_URL = "http://3.90.236.235:3018"
 BASE_URL = "http://localhost:3018"
@@ -254,27 +233,22 @@ def test_group_models(token):
     print("Train model (valid):")
     print_response(r)
 
-    # 3. Get all models (valid) -- if you have an endpoint for all models, otherwise skip
-    # r = requests.get(f"{BASE_URL}/group/model", headers=auth_headers(token))
-    # print("Get all models (valid):")
-    # print_response(r)
-
-    # 4. Get group models (invalid group_id)
+    # 3. Get group models (invalid group_id)
     r = requests.get(f"{BASE_URL}/group/999999/model", headers=auth_headers(token))
     print("Get group models (invalid group_id):")
     print_response(r, allow_error=True)
 
-    # 5. Get group models (valid group_id)
+    # 4. Get group models (valid group_id)
     r = requests.get(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token))
     print("Get group models (valid group_id):")
     print_response(r)
 
-    # 6. Predict (missing fields)
+    # 5. Predict (missing fields)
     r = requests.post(f"{BASE_URL}/group/{group_id}/predict", headers=auth_headers(token), json={})
     print("Predict (missing fields):")
     print_response(r, allow_error=True)
 
-    # 7. Predict (invalid item_id)
+    # 6. Predict (invalid item_id)
     r = requests.post(
         f"{BASE_URL}/group/{group_id}/predict",
         headers=auth_headers(token),
@@ -283,7 +257,7 @@ def test_group_models(token):
     print("Predict (invalid item_id):")
     print_response(r, allow_error=True)
 
-    # 8. Predict (valid) for both items
+    # 7. Predict (valid) for both items
     print(item_id_1, item_id_2)
     for item_id in [item_id_1, item_id_2]:
         r = requests.post(
@@ -299,25 +273,67 @@ def test_group_models(token):
             print_response(r)
         print("-" * 40)
 
-    # 9. Delete group model (invalid group_id)
+    # 8. Delete group model (invalid group_id)
     r = requests.delete(f"{BASE_URL}/group/999999/model", headers=auth_headers(token), json={"group_id": 999999})
     print("Delete group model (invalid group_id):")
     print_response(r, allow_error=True)
 
-    # 10. Delete group model (valid group_id)
+    # 9. Delete group model (valid group_id)
     r = requests.delete(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token))
     print("Delete group model (valid group_id):")
     print_response(r)
 
-    # 11. Delete group model (already deleted)
+    # 10. Delete group model (already deleted)
     r = requests.delete(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token))
     print("Delete group model (already deleted):")
     print_response(r, allow_error=True)
 
+def test_server_load(token):
+    print("Starting server load test (infinite loop, Ctrl+C to stop)...")
+    with open("price_history_raw_1.json") as f:
+        price_history_1 = json.load(f)
+    with open("price_history_raw_2.json") as f:
+        price_history_2 = json.load(f)
+    item_jsons = [price_history_1, price_history_2] * 5  # 10 items
+
+    group_count = 0
+    while True:
+        group_count += 1
+        print(f"\n--- Creating group #{group_count} with 10 items ---")
+        r = requests.post(f"{BASE_URL}/group", headers=auth_headers(token), json={"title": f"Load Test Group {group_count}"})
+        if r.status_code != 200:
+            print("Failed to create group, aborting this round.")
+            print_response(r)
+            continue
+        group_id = r.json().get("id")
+        item_ids = []
+        for i in range(10):
+            r = requests.post(
+                f"{BASE_URL}/group/{group_id}/items",
+                headers=auth_headers(token),
+                json={"item_name": f"LoadTestItem{i+1}", "item_json": item_jsons[i]}
+            )
+            if r.status_code != 200:
+                print(f"Failed to add item {i+1}, skipping group.")
+                print_response(r)
+                break
+            item_ids.append(r.json().get("id"))
+        else:
+            print("Training model for group...")
+            r = requests.post(f"{BASE_URL}/group/{group_id}/train", headers=auth_headers(token), json={"group_id": group_id})
+            print_response(r)
+
+        # requests.delete(f"{BASE_URL}/group/{group_id}", headers=auth_headers(token))
+        print("Sleeping 2 seconds before next group...")
+        time.sleep(2)
+
 if __name__ == "__main__":
+    import sys
     token = get_auth_token()
     if not token:
         print("Could not get auth token, aborting tests.")
+    elif "--server-load" in sys.argv or "-l" in sys.argv:
+        test_server_load(token)
     else:
         item_id = test_groups(token)
         test_steam(token)

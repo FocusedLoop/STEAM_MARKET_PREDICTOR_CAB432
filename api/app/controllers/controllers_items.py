@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
 from app.auth.jwt import authenticate_token
+from app.utils import validate_price_history
 from app.models import (
   model_get_all_groups,
   model_get_group_by_id,
@@ -11,6 +12,7 @@ from app.models import (
   model_remove_item_from_group,
   model_get_group_items
 )
+import json
 
 router = APIRouter()
 
@@ -48,6 +50,10 @@ async def add_item_to_group(group_id: int, request: Request, user=Depends(authen
     data = await request.json()
     item_name = data.get("item_name")
     item_json = data.get("item_json")
+
+    is_valid, error_msg = validate_price_history(item_json)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=f"Invalid price history: {error_msg}")
     if not item_name or not item_json or not group_id:
         raise HTTPException(status_code=400, detail="Item name, item JSON, and Group ID are required")
     try:
@@ -106,6 +112,12 @@ def get_group_by_id(group_id: int):
 # Get all items in a group
 async def get_group_items(group_id: int, user=Depends(authenticate_token)):
     try:
+        # Check group ownership first
+        group = model_get_group_by_id(group_id)
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+        if group["user_id"] != user["user_id"]:
+            raise HTTPException(status_code=403, detail="Not authorized to view this group")
         items = model_get_group_items(user["user_id"], group_id)
         return JSONResponse(content=items)
     except Exception as e:

@@ -1,13 +1,14 @@
 from app.db import get_connection
+import mariadb
 
 # Set the has_model flag for a group
-def set_group_has_model(conn, group_id, has_model):
+def model_set_group_has_ml(conn: mariadb.Connection, group_id: int, has_model: bool):
     cursor = conn.cursor()
     cursor.execute("UPDATE groups SET has_model = ? WHERE id = ?", (int(has_model), group_id))
     conn.commit()
 
 # Save a new model index into the database
-def model_save_model_index(user_id, group_id, item_id, data_hash, model_path, scaler_path, stats_path):
+def model_save_ml_index(user_id: int, group_id: int, item_id: int, data_hash: str, model_path: str, scaler_path: str, stats_path: str):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -16,7 +17,7 @@ def model_save_model_index(user_id, group_id, item_id, data_hash, model_path, sc
     """, (user_id, group_id, item_id, data_hash, model_path, scaler_path, stats_path))
     conn.commit()
     model_id = cursor.lastrowid
-    set_group_has_model(conn, group_id, True)
+    model_set_group_has_ml(conn, group_id, True)
 
     cursor.close()
     conn.close()
@@ -29,7 +30,7 @@ def model_save_model_index(user_id, group_id, item_id, data_hash, model_path, sc
     }
 
 # Get the model index for a specific item
-def model_get_model_index(user_id, item_id):
+def model_get_ml_index(user_id: int, item_id: int):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -45,7 +46,7 @@ def model_get_model_index(user_id, item_id):
 
 # Delete a model index for a specific item
 # HACK USING DIFFERENT CHECK FOR DELETE METHOD SINCE FOREIGN KEYS PROHIBIT DETECTING ROW CHANGE
-def model_delete_model_index(user_id, group_id):
+def model_delete_ml_index(user_id: int, group_id: int):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -64,7 +65,7 @@ def model_delete_model_index(user_id, group_id):
     deleted = before_count > after_count
     print("Rows before:", before_count, "Rows after:", after_count, "Deleted:", deleted)
     if deleted:
-        set_group_has_model(conn, group_id, False)
+        model_set_group_has_ml(conn, group_id, False)
     cursor.close()
     conn.close()
     return {"deleted": deleted}

@@ -18,6 +18,15 @@ services:
       - DB_NAME=tasksdb
     depends_on:
       - db
+  
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    depends_on:
+      - server
   db:
     image: mariadb:11
     restart: always

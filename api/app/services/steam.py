@@ -68,7 +68,7 @@ class steamAPI:
         return market_hash_name
 
     # Find the top n amount of suitable games with the most playtime
-    def find_suitable_games(self, top_n=10, min_playtime=60):
+    def find_suitable_games(self, top_n: int = 10, min_playtime: int = 60):
         """
         Returns a list of the user's top games by playtime, with their appids and names.
         Only includes games with playtime above min_playtime (in minutes).
@@ -130,8 +130,8 @@ class steamAPI:
         return None
 
     # Get the top N inventory items
-    # NOTE: This is not is use currently, maybe for assignment 2??
-    def get_top_inventory_items(self, appid: int, top_n=5, tradable_only=True):
+    # NOTE: This is not in use currently, maybe for assignment 2??
+    def get_top_inventory_items(self, appid: int, top_n: int = 5, tradable_only: bool = True):
         inventory = self._get_inventory(appid)
         descriptions = inventory.get("descriptions", [])
         if tradable_only:

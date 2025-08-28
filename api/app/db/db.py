@@ -27,7 +27,7 @@ def get_connection():
     sys.exit(1)
 
 # Create user table
-def create_user_table(conn):
+def create_user_table(conn: mariadb.Connection):
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -40,7 +40,7 @@ def create_user_table(conn):
     conn.commit()
 
 # Create group items table
-def create_groups_table(conn):
+def create_groups_table(conn: mariadb.Connection):
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS groups (
@@ -54,7 +54,7 @@ def create_groups_table(conn):
     conn.commit()
 
 # Create items per group
-def create_group_items_table(conn):
+def create_group_items_table(conn: mariadb.Connection):
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS group_items (
@@ -68,7 +68,7 @@ def create_group_items_table(conn):
     conn.commit()
 
 # Create model index table
-def create_model_index_table(conn):
+def create_model_index_table(conn: mariadb.Connection):
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS model_index (

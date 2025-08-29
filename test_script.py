@@ -1,6 +1,6 @@
 import requests, json, sys, time
 
-BASE_URL = "http://ec2-13-239-3-150.ap-southeast-2.compute.amazonaws.com:3010"
+BASE_URL = "http://ec2-13-210-69-51.ap-southeast-2.compute.amazonaws.com:3010"
 #BASE_URL = "http://localhost:3018"
 USERNAME = "testuser"
 PASSWORD = "testpass"
@@ -288,6 +288,7 @@ def test_group_models(token):
     print("Delete group model (already deleted):")
     print_response(r, allow_error=True)
 
+# Load tester
 def test_server_load(token):
     print("Starting server load test (infinite loop, Ctrl+C to stop)...")
     with open("price_history_raw_1.json") as f:
@@ -296,37 +297,44 @@ def test_server_load(token):
         price_history_2 = json.load(f)
     item_jsons = [price_history_1, price_history_2] * 5  # 10 items
 
-    group_count = 0
-    while True:
-        group_count += 1
-        print(f"\n--- Creating group #{group_count} with 10 items ---")
-        r = requests.post(f"{BASE_URL}/group", headers=auth_headers(token), json={"title": f"Load Test Group {group_count}"})
+    # Create the group
+    r = requests.post(f"{BASE_URL}/group", headers=auth_headers(token), json={"title": "Load Test Group"})
+    if r.status_code != 200:
+        print("Failed to create group, aborting.")
+        print_response(r)
+        return
+    group_id = r.json().get("id")
+    print(f"Created group with ID {group_id}")
+
+    item_ids = []
+    for i in range(len(item_jsons)):
+        r = requests.post(
+            f"{BASE_URL}/group/{group_id}/items",
+            headers=auth_headers(token),
+            json={"item_name": f"LoadTestItem{i+1}", "item_json": item_jsons[i]}
+        )
         if r.status_code != 200:
-            print("Failed to create group, aborting this round.")
+            print(f"Failed to add item {i+1}, aborting.")
             print_response(r)
-            continue
-        group_id = r.json().get("id")
-        item_ids = []
-        for i in range(1):
-            r = requests.post(
-                f"{BASE_URL}/group/{group_id}/items",
-                headers=auth_headers(token),
-                json={"item_name": f"LoadTestItem{i+1}", "item_json": item_jsons[i]}
-            )
-            if r.status_code != 200:
-                print(f"Failed to add item {i+1}, skipping group.")
-                print_response(r)
-                break
-            item_ids.append(r.json().get("id"))
-        else:
-            print("Training model for group...")
-            r = requests.post(f"{BASE_URL}/group/{group_id}/train", headers=auth_headers(token), json={"group_id": group_id})
-            print_response(r)
+            return
+        item_ids.append(r.json().get("id"))
+    print(f"Added {len(item_ids)} items to group.")
 
-        # requests.delete(f"{BASE_URL}/group/{group_id}", headers=auth_headers(token))
-        print("Sleeping 2 seconds before next group...")
+    loop_count = 0
+    while True:
+        loop_count += 1
+        print(f"\n--- Training model for group (iteration {loop_count}) ---")
+        # Train model
+        r = requests.post(f"{BASE_URL}/group/{group_id}/train", headers=auth_headers(token), json={"group_id": group_id})
+        print_response(r)
+
+        # Delete group model index after training
+        r = requests.delete(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token))
+        print("Delete group model (after training):")
+        print_response(r)
+
+        print("Sleeping 2 seconds before next iteration...")
         time.sleep(2)
-
 if __name__ == "__main__":
     import sys
     token = get_auth_token()

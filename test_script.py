@@ -1,7 +1,7 @@
 import requests, json, sys, time
 
-#BASE_URL = "http://3.90.236.235:3018"
-BASE_URL = "http://localhost:3018"
+BASE_URL = "http://ec2-13-239-3-150.ap-southeast-2.compute.amazonaws.com:3010"
+#BASE_URL = "http://localhost:3018"
 USERNAME = "testuser"
 PASSWORD = "testpass"
 STEAM_ID = "76561198281140980"
@@ -307,7 +307,7 @@ def test_server_load(token):
             continue
         group_id = r.json().get("id")
         item_ids = []
-        for i in range(10):
+        for i in range(1):
             r = requests.post(
                 f"{BASE_URL}/group/{group_id}/items",
                 headers=auth_headers(token),

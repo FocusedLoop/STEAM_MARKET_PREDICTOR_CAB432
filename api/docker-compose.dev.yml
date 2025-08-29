@@ -1,8 +1,12 @@
 services:
   server:
-    image: 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/n11275561_assessment_1:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "3010:3010"
+    volumes:
+      - .:/app
     env_file:
       - .env
     environment:
@@ -14,7 +18,9 @@ services:
       - db
   
   web:
-    image: 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/api-web:latest
+    build:
+      context: ./web
+      dockerfile: Dockerfile
     ports:
       - "3009:3009"
     depends_on:
@@ -29,5 +35,8 @@ services:
       - MARIADB_ROOT_PASSWORD=${DB_PASSWORD}
     ports:
       - "3008:3008"
+    # volumes:
+    #   - db_data:/var/lib/mysql
+
 volumes:
   db_data:

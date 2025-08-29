@@ -1,7 +1,7 @@
 import requests, json, base64
 import streamlit as st
 
-API_URL = "http://server:3018"
+API_URL = "http://server:3010"
 
 ### Authentication (public)
 # Log user into a session

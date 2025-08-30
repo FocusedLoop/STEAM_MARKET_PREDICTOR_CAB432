@@ -288,6 +288,7 @@ def test_group_models(token):
     print("Delete group model (already deleted):")
     print_response(r, allow_error=True)
 
+# Load tester
 def test_server_load(token):
     print("Starting server load test (infinite loop, Ctrl+C to stop)...")
     with open("price_history_raw_1.json") as f:

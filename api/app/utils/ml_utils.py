@@ -9,7 +9,8 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
-import os, json
+from queue import Queue
+import os, json, threading
 
 # Validate json price history structure
 def validate_price_history(price_history: dict):
@@ -38,7 +39,9 @@ class PriceModel:
     It handles data normalization, model training, evaluation, saving/loading model artifacts, and generating prediction graphs.
     Designed for use with time series price data, it generates future price predictions (utilizing random forests).
     """
+
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    QUEUE_STATUS_PATH = os.path.join(BASE_DIR, "tmp/queue_status.txt")
     MODEL_DIR = os.path.join(BASE_DIR, "tmp/models/")
     SCALER_DIR = os.path.join(BASE_DIR, "tmp/scalers/")
     FEATURES_DIR = os.path.join(BASE_DIR, "tmp/features/")
@@ -48,12 +51,80 @@ class PriceModel:
         "is_weekend", "price_rolling_mean_7", "price_diff", "volume_rolling_mean_7"
     ]
 
+    # Shared queue for all training instances amoung users
+    shared_queue = Queue()
+    _worker_started = False
+
     def __init__(self, user_id: int, username: str, item_id: int, item_name: str):
         self.user_id = user_id
         self.username = username
         self.item_id = item_id
         self.item_name = item_name
 
+    # Get a snapshot of the queue contents
+    @classmethod
+    def write_queue_status(cls):
+        items = list(cls.shared_queue.queue)
+        with open(cls.QUEUE_STATUS_PATH, "w") as f:
+            f.write("\n")
+            f.write("="*30 + "\n")
+            f.write("   PriceModel Training Queue\n")
+            f.write("="*30 + "\n")
+            if not items:
+                f.write("Queue is empty.\n")
+            else:
+                for idx, job in enumerate(items, 1):
+                    desc = job.get("func", None)
+                    if desc:
+                        desc = desc.__name__
+                    else:
+                        desc = str(job)
+                    f.write(f"{idx}. Job: {desc}\n")
+            f.write("="*30 + "\n")
+            f.write(f"Total jobs in queue: {len(items)}\n")
+            f.write("="*30 + "\n")
+
+    # Start the background worker
+    @classmethod
+    def _start_worker(cls):
+        if not cls._worker_started:
+            t = threading.Thread(target=cls._queue_worker, daemon=True)
+            t.start()
+            cls._worker_started = True
+
+    # Background worker for processing jobs
+    @classmethod
+    def _queue_worker(cls):
+        while True:
+            job = cls.shared_queue.get()
+            if job is None:
+                break
+            try:
+                result = job["func"](*job["args"], **job["kwargs"])
+                job["result_queue"].put(result)
+            except Exception as e:
+                job["result_queue"].put(e)
+            finally:
+                cls.shared_queue.task_done()
+
+    # Add training job to the queue
+    def _train_and_eval(self, raw_prices: str):
+        self._start_worker()
+        result_queue = Queue()
+
+        PriceModel.shared_queue.put({
+            "func": PriceModel._train_and_eval_actual,
+            "args": (self, raw_prices),
+            "kwargs": {},
+            "result_queue": result_queue
+        })
+
+        PriceModel.write_queue_status()
+        result = result_queue.get()
+        if isinstance(result, Exception):
+            raise result
+        return result
+    
     # Normalize price data
     @staticmethod
     def _normalize_prices(raw_prices: list):
@@ -95,8 +166,8 @@ class PriceModel:
         )
         return hashlib.sha256(hash_input).hexdigest()[:16]
 
-    # Train and evaluate model
-    def _train_and_eval(self, raw_prices: str):
+    @staticmethod
+    def _train_and_eval_actual(self, raw_prices: str):
         # Normalize
         df = self._normalize_prices(raw_prices)
         X = df[self.FEATURE_COLS]
@@ -104,7 +175,7 @@ class PriceModel:
         X_normalized = scaler.fit_transform(X)
         y = df["price"]
 
-        #Split and create training pipeline
+        # Split and create training pipeline
         X_train, X_test, y_train, y_test = train_test_split(X_normalized, y, test_size=0.3, random_state=42)
         pipe = Pipeline([("rf", RandomForestRegressor(
             n_estimators=600, max_depth=14, min_samples_leaf=10, max_features="sqrt",
@@ -117,7 +188,27 @@ class PriceModel:
         r2 = float(r2_score(y_test, test_pred))
         return pipe, scaler, df, {"mse": mse, "r2": r2}
 
-    
+    # Train and evaluate model
+    # def _train_and_eval(self, raw_prices: str):
+    #     # Normalize
+    #     df = self._normalize_prices(raw_prices)
+    #     X = df[self.FEATURE_COLS]
+    #     scaler = StandardScaler()
+    #     X_normalized = scaler.fit_transform(X)
+    #     y = df["price"]
+
+    #     #Split and create training pipeline
+    #     X_train, X_test, y_train, y_test = train_test_split(X_normalized, y, test_size=0.3, random_state=42)
+    #     pipe = Pipeline([("rf", RandomForestRegressor(
+    #         n_estimators=600, max_depth=14, min_samples_leaf=10, max_features="sqrt",
+    #         bootstrap=True, n_jobs=-1, random_state=42))])
+    #     pipe.fit(X_train, y_train)
+
+    #     # Generate Results and metrics
+    #     test_pred = pipe.predict(X_test)
+    #     mse = float(mean_squared_error(y_test, test_pred))
+    #     r2 = float(r2_score(y_test, test_pred))
+    #     return pipe, scaler, df, {"mse": mse, "r2": r2}
 
     # Generate training graph to display model performance
     def _generate_training_graph(self, json_obj: str):

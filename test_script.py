@@ -1,10 +1,12 @@
-import requests, json, sys, time
+import requests, json, sys, time, threading
 
-BASE_URL = "http://ec2-13-211-102-69.ap-southeast-2.compute.amazonaws.com:3010"
-#BASE_URL = "http://localhost:3018"
+#BASE_URL = "http://ec2-13-211-102-69.ap-southeast-2.compute.amazonaws.com:3010"
+BASE_URL = "http://localhost:3010"
 USERNAME = "testuser"
 PASSWORD = "testpass"
 STEAM_ID = "76561198281140980"
+QUEUE_TARGET = 10
+THREADS = 4
 
 def print_response(r, allow_error=False):
     print(f"Status: {r.status_code}")
@@ -289,47 +291,80 @@ def test_group_models(token):
     print_response(r, allow_error=True)
 
 # Load tester
+def submit_job(token, price_history, group_count):
+
+    r = requests.post(f"{BASE_URL}/group", headers=auth_headers(token), json={"title": f"LoadTestGroup{group_count}"})
+    if r.status_code != 200:
+        print("Failed to create group.")
+        print_response(r)
+        return
+    group_id = r.json().get("id")
+
+    r = requests.post(
+        f"{BASE_URL}/group/{group_id}/items",
+        headers=auth_headers(token),
+        json={"item_name": f"LoadTestItem{group_count}", "item_json": price_history}
+    )
+    if r.status_code != 200:
+        print("Failed to add item.")
+        print_response(r)
+        return
+
+    r = requests.post(f"{BASE_URL}/group/{group_id}/train", headers=auth_headers(token), json={"group_id": group_id})
+    print(f"Submitted train job for group {group_id}.")
+    print_response(r)
+
+def get_largest_group_id(token):
+    r = requests.get(f"{BASE_URL}/group", headers=auth_headers(token))
+    if r.status_code != 200:
+        print("Failed to fetch groups, defaulting group_count to 0.")
+        return 0
+    groups = r.json()
+    if not groups:
+        return 0
+    return max(g.get("id", 0) for g in groups)
+
 def test_server_load(token):
-    print("Starting server load test (infinite loop, Ctrl+C to stop)...")
+    print("Starting constant server load test (Ctrl+C to stop)...")
     with open("price_history_raw_1.json") as f:
         price_history_1 = json.load(f)
     with open("price_history_raw_2.json") as f:
         price_history_2 = json.load(f)
-    item_jsons = [price_history_1, price_history_2] * 100  # 2 items
+    item_jsons = [price_history_1, price_history_2]
+    group_count = get_largest_group_id(token)
+    print(f"Starting group_count from {group_count}")
 
-    group_count = 0
-    while True:
-        group_count += 1
-        print(f"\n--- Creating group #{group_count} with items ---")
-        r = requests.post(f"{BASE_URL}/group", headers=auth_headers(token), json={"title": f"Load Test Group {group_count}"})
-        if r.status_code != 200:
-            print("Failed to create group, aborting this round.")
-            print_response(r)
-            continue
-        group_id = r.json().get("id")
-        item_ids = []
-        for i in range(1):
-            r = requests.post(
-                f"{BASE_URL}/group/{group_id}/items",
-                headers=auth_headers(token),
-                json={"item_name": f"LoadTestItem{i+1}", "item_json": item_jsons[i]}
-            )
-            if r.status_code != 200:
-                print(f"Failed to add item {i+1}, skipping group.")
-                print_response(r)
-                break
-            item_ids.append(r.json().get("id"))
-        else:
-            print("Training model for group...")
-            r = requests.post(f"{BASE_URL}/group/{group_id}/train", headers=auth_headers(token), json={"group_id": group_id})
-            print_response(r)
+    def worker():
+        nonlocal group_count
+        while True:
+            group_count += 1
+            price_history = item_jsons[group_count % 2]
+            submit_job(token, price_history, group_count)
+            try:
+                group_id = group_count
+                r = requests.delete(
+                    f"{BASE_URL}/group/{group_id}/model",
+                    headers=auth_headers(token)
+                )
+                print(f"Deleted model for group {group_id}. Status: {r.status_code}")
+            except Exception as e:
+                print(f"Error deleting model for group {group_id}: {e}")
+            time.sleep(0.2)
 
-        # requests.delete(f"{BASE_URL}/group/{group_id}", headers=auth_headers(token))
-        #print("Sleeping 0.5 seconds before next group...")
-        time.sleep(0.5)
+    threads = []
+    for _ in range(THREADS):
+        t = threading.Thread(target=worker, daemon=True)
+        t.start()
+        threads.append(t)
+
+    # Main thread loop
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Load test stopped.")
 
 if __name__ == "__main__":
-    import sys
     token = get_auth_token()
     if not token:
         print("Could not get auth token, aborting tests.")

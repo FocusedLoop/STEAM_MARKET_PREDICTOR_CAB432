@@ -92,7 +92,6 @@ def model_remove_item_from_group(user_id: int, group_id: int, item_name: str):
 
 # Get all items in a group (must be owned by user)
 def model_get_group_items(user_id: int, group_id: int):
-    print(user_id, group_id)
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -101,7 +100,7 @@ def model_get_group_items(user_id: int, group_id: int):
         WHERE groups.user_id = ? AND group_items.group_id = ?
     """, (user_id, group_id))
     rows = cursor.fetchall()
-    print(rows)
+    #print(rows)
     columns = [desc[0] for desc in cursor.description]
     conn.close()
     items = [dict(zip(columns, row)) for row in rows]

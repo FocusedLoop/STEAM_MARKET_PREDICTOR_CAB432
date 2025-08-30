@@ -63,7 +63,7 @@ def model_delete_ml_index(user_id: int, group_id: int):
     """, (group_id, user_id))
     after_count = cursor.fetchone()[0]
     deleted = before_count > after_count
-    print("Rows before:", before_count, "Rows after:", after_count, "Deleted:", deleted)
+    #print("Rows before:", before_count, "Rows after:", after_count, "Deleted:", deleted)
     if deleted:
         model_set_group_has_ml(conn, group_id, False)
     cursor.close()

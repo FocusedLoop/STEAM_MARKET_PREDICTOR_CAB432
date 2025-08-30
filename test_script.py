@@ -1,6 +1,6 @@
 import requests, json, sys, time
 
-BASE_URL = "http://ec2-13-239-3-150.ap-southeast-2.compute.amazonaws.com:3010"
+BASE_URL = "http://ec2-13-211-102-69.ap-southeast-2.compute.amazonaws.com:3010"
 #BASE_URL = "http://localhost:3018"
 USERNAME = "testuser"
 PASSWORD = "testpass"
@@ -294,12 +294,12 @@ def test_server_load(token):
         price_history_1 = json.load(f)
     with open("price_history_raw_2.json") as f:
         price_history_2 = json.load(f)
-    item_jsons = [price_history_1, price_history_2] * 5  # 10 items
+    item_jsons = [price_history_1, price_history_2] * 100  # 2 items
 
     group_count = 0
     while True:
         group_count += 1
-        print(f"\n--- Creating group #{group_count} with 10 items ---")
+        print(f"\n--- Creating group #{group_count} with items ---")
         r = requests.post(f"{BASE_URL}/group", headers=auth_headers(token), json={"title": f"Load Test Group {group_count}"})
         if r.status_code != 200:
             print("Failed to create group, aborting this round.")
@@ -324,8 +324,8 @@ def test_server_load(token):
             print_response(r)
 
         # requests.delete(f"{BASE_URL}/group/{group_id}", headers=auth_headers(token))
-        print("Sleeping 2 seconds before next group...")
-        time.sleep(2)
+        #print("Sleeping 0.5 seconds before next group...")
+        time.sleep(0.5)
 
 if __name__ == "__main__":
     import sys

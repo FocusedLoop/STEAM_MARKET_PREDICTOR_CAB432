@@ -107,7 +107,7 @@ class PriceModel:
         #Split and create training pipeline
         X_train, X_test, y_train, y_test = train_test_split(X_normalized, y, test_size=0.3, random_state=42)
         pipe = Pipeline([("rf", RandomForestRegressor(
-            n_estimators=300, max_depth=14, min_samples_leaf=5, max_features="sqrt",
+            n_estimators=600, max_depth=14, min_samples_leaf=10, max_features="sqrt",
             bootstrap=True, n_jobs=-1, random_state=42))])
         pipe.fit(X_train, y_train)
 
@@ -160,7 +160,6 @@ class PriceModel:
     # Generate prediction graph for a given predicitions
     def _generate_prediction_graph(self, prediction_df: pd.DataFrame):
         #os.makedirs(self.GRAPH_DIR, exist_ok=True)
-        print("PPASED")
         buf = io.BytesIO()
         plt.figure(figsize=(12, 6))
         plt.plot(prediction_df['time'], prediction_df['predicted_price'], label='Predicted Price', marker='x')

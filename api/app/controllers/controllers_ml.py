@@ -119,7 +119,7 @@ async def delete_group_model(group_id: int, user=Depends(authenticate_token)):
 
         # Delete from DB
         result = model_delete_ml_index(user["user_id"], group_id)
-        print(result)
+        #print(result)
         if result.get("deleted"):
             # Delete files from disk
             for f in model_files:

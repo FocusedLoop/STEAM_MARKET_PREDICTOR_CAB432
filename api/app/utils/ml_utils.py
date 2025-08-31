@@ -9,11 +9,11 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
-from queue import Queue
+from queue import Queue, Full
 import os, json, threading
 
 # Limit concurrent trainings
-MAX_CONCURRENT_TRAININGS = 4
+MAX_CONCURRENT_TRAININGS = 2
 training_semaphore = threading.Semaphore(MAX_CONCURRENT_TRAININGS)
 
 # Validate json price history structure
@@ -56,7 +56,7 @@ class PriceModel:
     ]
 
     # Shared queue for all training instances amoung users
-    shared_queue = Queue()
+    shared_queue = Queue(maxsize=20)
     _worker_started = False
 
     def __init__(self, user_id: int, username: str, item_id: int, item_name: str):
@@ -120,12 +120,15 @@ class PriceModel:
         try:
             self._start_worker()
             result_queue = Queue()
-            PriceModel.shared_queue.put({
-                "func": PriceModel._train_and_eval_actual,
-                "args": (self, raw_prices),
-                "kwargs": {},
-                "result_queue": result_queue
-            })
+            try:
+                PriceModel.shared_queue.put({
+                    "func": PriceModel._train_and_eval_actual,
+                    "args": (self, raw_prices),
+                    "kwargs": {},
+                    "result_queue": result_queue
+                }, block=False)
+            except Full:
+                raise RuntimeError("Training queue is full. Please try again later.")
             PriceModel.write_queue_status()
             result = result_queue.get()
             if isinstance(result, Exception):
@@ -187,8 +190,8 @@ class PriceModel:
         # Split and create training pipeline
         X_train, X_test, y_train, y_test = train_test_split(X_normalized, y, test_size=0.3, random_state=42)
         pipe = Pipeline([("rf", RandomForestRegressor(
-            n_estimators=300, max_depth=14, min_samples_leaf=5, max_features="sqrt",
-            bootstrap=True, n_jobs=-1, random_state=42))])
+            n_estimators=750, max_depth=20, min_samples_leaf=5, max_features="sqrt",
+            bootstrap=True, n_jobs=2, random_state=42))])
         pipe.fit(X_train, y_train)
 
         # Generate Results and metrics

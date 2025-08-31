@@ -1,6 +1,6 @@
 import requests, json, sys, time, threading
 
-BASE_URL = "http://ec2-54-80-255-47.compute-1.amazonaws.com:3010"
+BASE_URL = "http://ec2-3-25-97-203.ap-southeast-2.compute.amazonaws.com:3010"
 #BASE_URL = "http://localhost:3010"
 USERNAME = "testuser"
 PASSWORD = "testpass"
@@ -347,7 +347,7 @@ def test_server_load(token):
                 for future in list(futures):
                     if future.done():
                         futures.remove(future)
-                time.sleep(SUBMIT_DELAY)  # Small sleep to avoid busy-waiting
+                time.sleep(SUBMIT_DELAY)
     except KeyboardInterrupt:
         print("Load test stopped.")
 

@@ -1,0 +1,51 @@
+
+# ON LAPTOP AND EC2#
+
+# setup #
+aws configure sso --use-device-code
+aws ssm start-session --target=i-0f279508021689552
+sudo -iu ubuntu
+
+aws ecr create-repository --repository-name csgo-market-predictor --region ap-southeast-2
+
+aws ecr get-login-password --region ap-southeast-2 \
+| docker login --username AWS --password-stdin 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com
+
+# once setup for updating repo #
+docker build -t n11275561_assessment_1:latest .
+
+docker tag n11275561_assessment_1:latest 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/n11275561_assessment_1:latest
+
+docker push 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/n11275561_assessment_1:latest
+
+# ON EC2 #
+aws ecr get-login-password --region ap-southeast-2 \
+| docker login --username AWS --password-stdin 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com
+
+docker pull 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/n11275561_assessment_1:latest
+
+docker compose up -d
+
+
+
+# Pushing to image
+export GIT_SHA=$(git rev-parse --short HEAD)
+
+docker build -t n11275561_assessment_1:$GIT_SHA ./api
+
+docker tag n11275561_assessment_1:$GIT_SHA 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/n11275561_assessment_1:latest
+
+docker push 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/n11275561_assessment_1:latest
+
+docker build -t api-web:$GIT_SHA ./api/web
+
+docker tag api-web:$GIT_SHA 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/api-web:latest
+
+docker push 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/api-web:latest
+
+
+# Pulling from image
+docker pull 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/n11275561_assessment_1:latest
+docker pull 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/api-web:latest
+
+

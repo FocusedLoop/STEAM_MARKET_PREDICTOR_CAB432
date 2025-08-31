@@ -1,7 +1,7 @@
 import requests, json, sys, time, threading
 
-#BASE_URL = "http://ec2-13-211-102-69.ap-southeast-2.compute.amazonaws.com:3010"
-BASE_URL = "http://localhost:3010"
+BASE_URL = "http://ec2-16-176-141-126.ap-southeast-2.compute.amazonaws.com:3010"
+#BASE_URL = "http://localhost:3010"
 USERNAME = "testuser"
 PASSWORD = "testpass"
 STEAM_ID = "76561198281140980"
@@ -331,7 +331,7 @@ def test_server_load(token):
     with open("price_history_raw_2.json") as f:
         price_history_2 = json.load(f)
     item_jsons = [price_history_1, price_history_2]
-    group_count = get_largest_group_id(token)
+    group_count = get_largest_group_id(token) - 1
     print(f"Starting group_count from {group_count}")
 
     def worker():
@@ -349,7 +349,7 @@ def test_server_load(token):
                 print(f"Deleted model for group {group_id}. Status: {r.status_code}")
             except Exception as e:
                 print(f"Error deleting model for group {group_id}: {e}")
-            time.sleep(0.2)
+            time.sleep(1.5) # 1.5 next
 
     threads = []
     for _ in range(THREADS):

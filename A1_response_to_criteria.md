@@ -35,8 +35,9 @@ Core criteria
 - **Relevant files:**
     - app/auth/jwt.py
     - app/db/db.py
-    - app/models/models_user.py
-    - app/models/controllers_users.py
+    - app/models/models_users.py
+    - app/controllers/controllers_users.py
+    - .env.example
 
 ### REST API
 
@@ -53,44 +54,52 @@ Core criteria
 
 ### Data types
 
-- **One line description:**
-- **Video timestamp:**
-- **Relevant files:**
-    - 
+- **One line description:** Application makes use of both structured relational data (model index database in MariaDB) and unstructured binary artifacts (joblib model and scaler files).  
+- **Video timestamp:**  
+- **Relevant files:**  
+  - app/controllers/controllers_ml.py  
+  - app/models/models_ml.py  
+  - app/utils/ml_utils.py  
+  - tmp/  
 
 #### First kind
 
-- **One line description:** Raw steam market price history data in JSON form. Stored in MariaDB as text
-- **Type:** UnStructured
-- **Rationale:** Need to be able to assign items to groups and users so a Query able database is needed to do this
-- **Video timestamp:** 4:05
+- **One line description:** Model index database linking generated models to groups and items (stores id, user ownership, hash, model paths, flags, etc.)
+- **Type:** Structured
+- **Rationale:** Data is stored in MariaDB tables with a defined schema (ids, ownership, file paths, flags). This allows efficient queries to tie models back to users and groups.
+- **Video timestamp:**
 - **Relevant files:**
-    - app/controllers/controllers_ml.py
-    - app/models/models_ml.py
-    - app/utils/ml_utils.py
+  - app/controllers/controllers_ml.py
+  - app/models/models_ml.py
+  - app/utils/ml_utils.py
 
 #### Second kind
 
-- **One line description:** Model and Scaler joblin files for using the models
-- **Type:** Structured
-- **Rationale:**
+- **One line description:** Model and Scaler joblib files generated during training
+- **Type:** UnStructured
+- **Rationale:** These are binary artifacts without a queryable schema. They cannot be stored or queried directly in MariaDB, only referenced by path from the model index.
 - **Video timestamp:**
 - **Relevant files:**
-  - 
+  - app/utils/ml_utils.py
+  - app/controllers/controllers_ml.py
+  - tmp/.
 
 ### CPU intensive task
 
- **One line description:**
-- **Video timestamp:** 
-- **Relevant files:**
-    - 
+- **One line description:** Implementation of a shared job queue in `PriceModel` to handle machine learning tasks efficiently across multiple users.  
+- **Video timestamp:** 7:20  
+- **Relevant files:**  
+  - app/utils/ml_utils.py  
+  - app/controllers/controllers_ml.py  
+  - tmp/queue_status.txt
 
 ### CPU load testing
 
- **One line description:**
-- **Video timestamp:** 
-- **Relevant files:**
-    - 
+- **One line description:** Stress testing the shared job queue to maintain steady CPU usage by keeping the queue full and monitoring performance.  
+- **Video timestamp:** 8:10  
+- **Relevant files:**  
+  - app/utils/ml_utils.py  
+  - tmp/queue_status.txt  
 
 Additional criteria
 ------------------------------------------------
@@ -104,38 +113,51 @@ Additional criteria
 
 ### External API(s)
 
-- **One line description:** Not attempted
-- **Video timestamp:**
+- **One line description:** Integrates the Steam Web API (IPlayerService, ISteamEconomy) and Steam Community endpoints as primary data sources to fetch owned games, user inventory, resolve `market_hash_name`, and generate price-history URLs consumed by the API.
+- **Video timestamp:** 14:20
 - **Relevant files:**
-    - 
+  - app/services/steam.py
+  - app/controllers/controllers_steam.py
+  - app/routes/routes_steam.py
+  - .env.example
+  - web/web_page.py
 
 ### Additional types of data
 
-- **One line description:** Not attempted
-- **Video timestamp:**
-- **Relevant files:**
-    - 
+- **One line description:** Application uses three distinct types of data: structured relational tables, unstructured model/data files, and runtime log data.  
+- **Video timestamp:**  
+- **Relevant files:**   
+  - app/utils/ml_utils.py
+  - app/tmp/.
+
 
 ### Custom processing
 
-- **One line description:** Not attempted
-- **Video timestamp:**
-- **Relevant files:**
-    - 
+- **One line description:** Application implements a custom ML pipeline with domain-specific feature engineering, a managed job queue for multi-user training, and tailored persistence/visualisation of Steam market predictions.
+- **Video timestamp:**  
+- **Relevant files:**  
+  - app/utils/ml_utils.py  
+  - app/controllers/controllers_ml.py
+  - tmp/models/
+  - tmp/scalers/
+  - tmp/features/
 
 ### Infrastructure as code
 
-- **One line description:** Not attempted
-- **Video timestamp:**
-- **Relevant files:**
-    - 
+- **One line description:** Application deployment is automated using Docker Compose files that define and launch all required services (API server, web frontend, and MariaDB database) from a single command.  
+- **Video timestamp:** 
+- **Relevant files:**  
+  - docker-compose.yml  
+  - docker-compose.dev.yml  
+  - Dockerfile  
+  - web/Dockerfile  
 
 ### Web client
 
-- **One line description:**
-- **Video timestamp:**
-- **Relevant files:**
-    -   
+- **One line description:** A full-featured Streamlit web client provides a browser-accessible interface to all API endpoints, including authentication, group and item management, Steam integration, and ML training/prediction with visual outputs.  
+- **Video timestamp:** 13:30  
+- **Relevant files:**  
+  - web/web_page.py
 
 ### Upon request
 

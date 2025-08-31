@@ -9,6 +9,7 @@ import base64, os
 # Handle training groups of models, go through each item in the group and train them
 async def group_train_model(request: Request, user=Depends(authenticate_token)):
     try:
+        print("BEGINING GROUP TRAINING===============================")
         data = await request.json()
         group_id = data.get("group_id")
         if not group_id:

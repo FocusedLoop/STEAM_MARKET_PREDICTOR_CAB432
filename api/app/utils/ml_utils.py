@@ -12,6 +12,10 @@ import matplotlib.pyplot as plt
 from queue import Queue
 import os, json, threading
 
+# Limit concurrent trainings
+MAX_CONCURRENT_TRAININGS = 4
+training_semaphore = threading.Semaphore(MAX_CONCURRENT_TRAININGS)
+
 # Validate json price history structure
 def validate_price_history(price_history: dict):
     if not isinstance(price_history, dict):
@@ -109,21 +113,26 @@ class PriceModel:
 
     # Add training job to the queue
     def _train_and_eval(self, raw_prices: str):
-        self._start_worker()
-        result_queue = Queue()
+        acquired = training_semaphore.acquire(blocking=False)
+        if not acquired:
+            raise RuntimeError("Server is busy. Please try again later.")
 
-        PriceModel.shared_queue.put({
-            "func": PriceModel._train_and_eval_actual,
-            "args": (self, raw_prices),
-            "kwargs": {},
-            "result_queue": result_queue
-        })
-
-        PriceModel.write_queue_status()
-        result = result_queue.get()
-        if isinstance(result, Exception):
-            raise result
-        return result
+        try:
+            self._start_worker()
+            result_queue = Queue()
+            PriceModel.shared_queue.put({
+                "func": PriceModel._train_and_eval_actual,
+                "args": (self, raw_prices),
+                "kwargs": {},
+                "result_queue": result_queue
+            })
+            PriceModel.write_queue_status()
+            result = result_queue.get()
+            if isinstance(result, Exception):
+                raise result
+            return result
+        finally:
+            training_semaphore.release()
     
     # Normalize price data
     @staticmethod
@@ -178,7 +187,7 @@ class PriceModel:
         # Split and create training pipeline
         X_train, X_test, y_train, y_test = train_test_split(X_normalized, y, test_size=0.3, random_state=42)
         pipe = Pipeline([("rf", RandomForestRegressor(
-            n_estimators=600, max_depth=14, min_samples_leaf=10, max_features="sqrt",
+            n_estimators=300, max_depth=14, min_samples_leaf=5, max_features="sqrt",
             bootstrap=True, n_jobs=-1, random_state=42))])
         pipe.fit(X_train, y_train)
 

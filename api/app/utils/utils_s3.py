@@ -4,8 +4,6 @@ import boto3, joblib, json, io, os
 
 BUCKET_NAME = os.environ.get('S3_BUCKET_NAME')
 REGION_NAME = os.environ.get('AWS_REGION')
-AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
 
 class S3StorageManager:
     """
@@ -23,8 +21,6 @@ class S3StorageManager:
             self.s3_client = boto3.client(
                 's3',
                 region_name=REGION_NAME,
-                aws_access_key_id=AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=AWS_SECRET_ACCESS_KEY
             )
             self.s3_client.list_buckets()
             print(f"S3 client initialized for bucket: {self.bucket_name}")

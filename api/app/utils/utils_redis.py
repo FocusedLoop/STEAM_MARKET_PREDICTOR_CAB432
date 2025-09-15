@@ -1,6 +1,9 @@
 from typing import Any, Optional
 import threading, redis, json, os
 import redis.asyncio
+import redis.cluster
+import redis.asyncio.cluster
+from redis.cluster import ClusterNode 
 import joblib
 import base64
 import io
@@ -10,6 +13,12 @@ REDIS_HOST = os.environ.get("REDIS_HOST")
 REDIS_PORT = int(os.environ.get("REDIS_PORT"))
 REDIS_DB = int(os.environ.get("REDIS_DB"))
 REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
+REDIS_SSL = os.environ.get("REDIS_SSL")
+
+REDIS_HOST="a2-pairs-5-a2-pairs-redis-cache-0001-001.a2-pairs-5-a2-pairs-redis-cache.km2jzi.apse2.cache.amazonaws.com"
+REDIS_PORT=6379
+REDIS_SSL=True
+
 REDIS_QUEUE_KEY = "ml_training_queue"
 MAX_CONCURRENT_TRAININGS = int(os.environ.get("MAX_CONCURRENT_TRAININGS", 2))
 MAX_QUEUE_SIZE = int(os.environ.get("MAX_QUEUE_SIZE", 1000))
@@ -22,15 +31,26 @@ class RedisJobQueue:
 
     def __init__(self):
         try:
+            print("Connecting to Redis:", REDIS_HOST, REDIS_PORT, REDIS_SSL)
             self.redis_client = redis.Redis(
                 host=REDIS_HOST,
                 port=REDIS_PORT,
+                ssl=REDIS_SSL,
+                # password=REDIS_PASSWORD,
                 decode_responses=True
             )
+            
+            # startup_nodes = [ClusterNode(REDIS_HOST, REDIS_PORT)]
+            # self.redis_client = redis.cluster.RedisCluster(
+            #     startup_nodes=startup_nodes,
+            #     ssl=REDIS_SSL,
+            #     password=REDIS_PASSWORD,
+            #     decode_responses=True
+            # )
             self.redis_client.ping()
             self.redis_concurrency_cap = MAX_CONCURRENT_TRAININGS
             print("Redis job queue connected successfully")
-        except redis.ConnectionError as e:
+        except Exception as e:
             print(f"Redis job queue connection failed: {e}")
             self.redis_client = None
 
@@ -77,7 +97,6 @@ class RedisJobQueue:
             print(f"Error getting active job count: {e}")
             return 0
 
-    # Moved from ml_utils.py - Update _redis_queue_worker for dynamic concurrency
     def redis_queue_worker(self, cls):
         while True:
             # Check if we can start a new job
@@ -150,6 +169,7 @@ class RedisCache:
         self.port = REDIS_PORT
         self.db = REDIS_DB
         self.password = REDIS_PASSWORD
+        self.ssl = REDIS_SSL
         self.client = None
         self.connected = False
     
@@ -162,13 +182,23 @@ class RedisCache:
     async def _connect(self):
         """Initialize async Redis client."""
         try:
+            print("Connecting to Redis:", REDIS_HOST, REDIS_PORT, REDIS_SSL)
             self.client = redis.asyncio.Redis(
                 host=self.host,
                 port=self.port,
                 db=self.db,
-                password=self.password,
+                # password=self.password,
+                ssl=self.ssl,
                 decode_responses=True
             )
+            
+            # startup_nodes = [ClusterNode(self.host, self.port)]
+            # self.client = redis.asyncio.cluster.RedisCluster(
+            #     startup_nodes=startup_nodes,
+            #     ssl=self.ssl,
+            #     password=self.password,
+            #     decode_responses=True
+            # )
             await self.client.ping()
             print("Async Redis cache connected successfully")
         except Exception as e:
@@ -223,5 +253,6 @@ class RedisCache:
         except Exception as e:
             print(f"Cache delete error: {e}")
             return False
-        
+
+print("Initializing Redis cache...")
 redis_cache = RedisCache()

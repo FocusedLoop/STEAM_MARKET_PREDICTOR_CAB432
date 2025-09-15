@@ -1,6 +1,6 @@
 services:
   server:
-    image: 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/n11275561_assessment_1:latest
+    image: 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/a2-pairs-5-a2-assessment2-repo:latest
     ports:
       - "3010:3010"
     env_file:
@@ -10,12 +10,9 @@ services:
       - DB_USER=user
       - DB_PASSWORD=pass
       - DB_NAME=tasksdb
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
     depends_on:
       - db
-      - redis
-  
+
   web:
     image: 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/api-web:latest
     ports:

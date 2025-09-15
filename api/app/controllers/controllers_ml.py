@@ -4,6 +4,7 @@ from app.auth.jwt import authenticate_token
 from app.utils.ml_utils import validate_price_history, PriceModel
 from app.models import model_save_ml_index, model_get_ml_index, model_get_group_items, model_get_group_by_id, model_delete_ml_index
 from app.utils.utils_redis import redis_cache
+from app.utils.utils_s3 import S3StorageManager
 from datetime import datetime
 import base64, os
 
@@ -135,12 +136,19 @@ async def delete_group_model(group_id: int, user=Depends(authenticate_token)):
         result = model_delete_ml_index(user["user_id"], group_id)
         if result.get("deleted"):
             # Delete files from disk
+            s3_manager = S3StorageManager()
             for f in model_files:
                 if f and os.path.exists(f):
                     try:
                         os.remove(f)
                     except Exception as e:
                         print(f"Warning: Could not delete {f}: {e}")
+                else:
+                    # S3 storage: Delete object by key
+                    try:
+                        s3_manager.delete_file(f)
+                    except Exception as e:
+                        print(f"Warning: Could not delete S3 object {f}: {e}")
             
             # Invalidate cache for this group's models
             await redis_cache.delete(f"group:{group_id}:models:{user['user_id']}")

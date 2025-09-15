@@ -1,7 +1,7 @@
 import requests, json, sys, time, threading
 
-#BASE_URL = "http://ec2-3-25-97-203.ap-southeast-2.compute.amazonaws.com:3010"
-BASE_URL = "http://localhost:3010"
+BASE_URL = "http://ec2-3-107-255-142.ap-southeast-2.compute.amazonaws.com:3010"
+#BASE_URL = "http://localhost:3010"
 USERNAME = "testuser"
 PASSWORD = "testpass"
 STEAM_ID = "76561198281140980"

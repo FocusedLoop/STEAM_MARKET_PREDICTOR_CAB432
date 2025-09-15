@@ -19,6 +19,8 @@ redis_job_queue = RedisJobQueue()
 # Global S3 storage manager instance
 s3_storage_manager = S3StorageManager()
 
+LOCAL_STORAGE = os.environ.get("LOCAL_STORAGE")
+
 # Validate json price history structure
 def validate_price_history(price_history: dict):
     if not isinstance(price_history, dict):
@@ -170,9 +172,12 @@ class PriceModel:
         if s3_storage_manager.s3_client:
             pipe = s3_storage_manager.download_model_or_scaler(self.model_path)
             scaler = s3_storage_manager.download_model_or_scaler(self.scaler_path)
-        else:
+        elif LOCAL_STORAGE:
             pipe = joblib.load(self.model_path)
             scaler = joblib.load(self.scaler_path)
+        else:
+            raise RuntimeError("No valid storage method configured for loading model artifacts. Ensure S3 client is available or LOCAL_STORAGE is set.")
+
         df = pd.DataFrame(json_obj)
         df = self._normalize_prices(df)
         X = df[self.feature_cols]
@@ -273,9 +278,12 @@ class PriceModel:
             }
             # Setup directories and file paths
             if s3_storage_manager.s3_client:
+                print("Using S3 to save model artifacts")
                 model_path, scaler_path, stats_path = self._save_model_data_s3(pipe, scaler, feature_means, data_hash)
-            else:
+            elif LOCAL_STORAGE:
                 model_path, scaler_path, stats_path = self._save_model_data_local(pipe, scaler, feature_means, data_hash)
+            else:
+                raise RuntimeError("No valid storage method configured for loading model artifacts. Ensure S3 client is available or LOCAL_STORAGE is set.")
             
             # Set instance variables for later use
             self.model_path = model_path
@@ -302,14 +310,17 @@ class PriceModel:
         try:
             # Load model artifacts
             if s3_storage_manager.s3_client:
+                print("Using S3 to load model artifacts")
                 pipe = s3_storage_manager.download_model_or_scaler(model_path)
                 scaler = s3_storage_manager.download_model_or_scaler(scaler_path)
                 feature_means = s3_storage_manager.download_json_data(stats_path)
-            else:
+            elif LOCAL_STORAGE:
                 pipe = joblib.load(model_path)
                 scaler = joblib.load(scaler_path)
                 with open(stats_path, "r") as f:
                     feature_means = json.load(f)
+            else:
+                raise RuntimeError("No valid storage method configured for loading model artifacts. Ensure S3 client is available or LOCAL_STORAGE is set.")
 
             # Create prediction DataFrame
             times = pd.date_range(start=start_time, end=end_time, freq='D')

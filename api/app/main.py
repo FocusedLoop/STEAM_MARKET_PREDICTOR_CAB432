@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from app.routes import router_items, router_users, router_steam
 import uvicorn, os
 
-# Initialize API
+# Initialize APIno
 SITE_PORT = os.environ.get("SITE_PORT")
 
 app = FastAPI(

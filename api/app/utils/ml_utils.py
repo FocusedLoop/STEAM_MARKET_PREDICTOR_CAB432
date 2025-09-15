@@ -9,12 +9,15 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
-from queue import Queue, Full
-import os, json, threading
+from .utils_redis import RedisJobQueue
+from .utils_s3 import S3StorageManager
+import os, json, threading, time, uuid, base64
 
-# Limit concurrent trainings
-MAX_CONCURRENT_TRAININGS = 2
-training_semaphore = threading.Semaphore(MAX_CONCURRENT_TRAININGS)
+# Global Redis job queue instance
+redis_job_queue = RedisJobQueue()
+
+# Global S3 storage manager instance
+s3_storage_manager = S3StorageManager()
 
 # Validate json price history structure
 def validate_price_history(price_history: dict):
@@ -44,19 +47,13 @@ class PriceModel:
     Designed for use with time series price data, it generates future price predictions (utilizing random forests).
     """
 
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
     QUEUE_STATUS_PATH = os.path.join(BASE_DIR, "tmp/queue_status.txt")
     MODEL_DIR = os.path.join(BASE_DIR, "tmp/models/")
     SCALER_DIR = os.path.join(BASE_DIR, "tmp/scalers/")
     FEATURES_DIR = os.path.join(BASE_DIR, "tmp/features/")
-    GRAPH_DIR = os.path.join(BASE_DIR, "tmp/graphs/")
-    FEATURE_COLS = [
-        "time_numeric", "volume", "day_of_week", "month", "year", "day",
-        "is_weekend", "price_rolling_mean_7", "price_diff", "volume_rolling_mean_7"
-    ]
 
-    # Shared queue for all training instances amoung users
-    shared_queue = Queue(maxsize=20)
+    # Shared Redis-based queue for all training instances
     _worker_started = False
 
     def __init__(self, user_id: int, username: str, item_id: int, item_name: str):
@@ -65,77 +62,47 @@ class PriceModel:
         self.item_id = item_id
         self.item_name = item_name
 
-    # Get a snapshot of the queue contents
-    @classmethod
-    def write_queue_status(cls):
-        items = list(cls.shared_queue.queue)
-        with open(cls.QUEUE_STATUS_PATH, "w") as f:
-            f.write("\n")
-            f.write("="*30 + "\n")
-            f.write("   PriceModel Training Queue\n")
-            f.write("="*30 + "\n")
-            if not items:
-                f.write("Queue is empty.\n")
-            else:
-                for idx, job in enumerate(items, 1):
-                    desc = job.get("func", None)
-                    if desc:
-                        desc = desc.__name__
-                    else:
-                        desc = str(job)
-                    f.write(f"{idx}. Job: {desc}\n")
-            f.write("="*30 + "\n")
-            f.write(f"Total jobs in queue: {len(items)}\n")
-            f.write("="*30 + "\n")
+        self.feature_cols = [
+            "time_numeric", "volume", "day_of_week", "month", "year", "day",
+            "is_weekend", "price_rolling_mean_7", "price_diff", "volume_rolling_mean_7"
+        ]
+    
+    # Update _start_worker to use RedisJobQueue method
+    def _start_worker(self):
+        if not PriceModel._worker_started:
+            PriceModel._worker_started = True
+            worker_thread = threading.Thread(target=redis_job_queue.redis_queue_worker, args=(PriceModel,), daemon=True)
+            worker_thread.start()
 
-    # Start the background worker
-    @classmethod
-    def _start_worker(cls):
-        if not cls._worker_started:
-            t = threading.Thread(target=cls._queue_worker, daemon=True)
-            t.start()
-            cls._worker_started = True
-
-    # Background worker for processing jobs
-    @classmethod
-    def _queue_worker(cls):
+    # Update _train_and_eval to use dynamic check
+    def _train_and_eval_redis(self, raw_prices: str):
+        job_id = str(uuid.uuid4())
+        job_data = {
+            "func": "_train_and_eval_actual",
+            "args": [self.user_id, self.username, self.item_id, self.item_name, raw_prices],
+            "kwargs": {},
+            "timestamp": time.time(),
+            "job_id": job_id
+        }
+        redis_job_queue.enqueue(job_data)
+        self._start_worker()
+        
+        # Wait for result
         while True:
-            job = cls.shared_queue.get()
-            if job is None:
-                break
-            try:
-                result = job["func"](*job["args"], **job["kwargs"])
-                job["result_queue"].put(result)
-            except Exception as e:
-                job["result_queue"].put(e)
-            finally:
-                cls.shared_queue.task_done()
-
-    # Add training job to the queue
-    def _train_and_eval(self, raw_prices: str):
-        acquired = training_semaphore.acquire(blocking=False)
-        if not acquired:
-            raise RuntimeError("Server is busy. Please try again later.")
-
-        try:
-            self._start_worker()
-            result_queue = Queue()
-            try:
-                PriceModel.shared_queue.put({
-                    "func": PriceModel._train_and_eval_actual,
-                    "args": (self, raw_prices),
-                    "kwargs": {},
-                    "result_queue": result_queue
-                }, block=False)
-            except Full:
-                raise RuntimeError("Training queue is full. Please try again later.")
-            PriceModel.write_queue_status()
-            result = result_queue.get()
-            if isinstance(result, Exception):
-                raise result
-            return result
-        finally:
-            training_semaphore.release()
+            result_str = redis_job_queue.redis_client.get(f"job_result:{job_id}")
+            if result_str:
+                result_dict = json.loads(result_str)
+                if "error" in result_dict:
+                    raise RuntimeError(result_dict["error"])
+                # Deserialize
+                pipe = joblib.load(io.BytesIO(base64.b64decode(result_dict["pipe"])))
+                scaler = joblib.load(io.BytesIO(base64.b64decode(result_dict["scaler"])))
+                df = pd.read_json(io.StringIO(result_dict["df"]))
+                metrics = json.loads(result_dict["metrics"])
+                # Clean up
+                redis_job_queue.redis_client.delete(f"job_result:{job_id}")
+                return pipe, scaler, df, metrics
+            time.sleep(1)
     
     # Normalize price data
     @staticmethod
@@ -165,24 +132,21 @@ class PriceModel:
         return df
 
     # Generate hash for dataset
-    @staticmethod
-    def _hash_dataset(user_id: int, item_id: int, timestamp: int, df: pd.DataFrame):
+    def _hash_dataset(self, timestamp: int, df: pd.DataFrame):
         buf = io.BytesIO()
-        #df_sorted = df.sort_values("time")
-        df[PriceModel.FEATURE_COLS + ["price"]].to_parquet(buf, index=False)
+        df[self.feature_cols + ["price"]].to_parquet(buf, index=False)
         hash_input = (
-            str(user_id).encode("utf-8") +
-            str(item_id).encode("utf-8") +
+            str(self.user_id).encode("utf-8") +
+            str(self.item_id).encode("utf-8") +
             str(timestamp).encode("utf-8") +
             buf.getvalue()
         )
         return hashlib.sha256(hash_input).hexdigest()[:16]
 
-    @staticmethod
     def _train_and_eval_actual(self, raw_prices: str):
         # Normalize
         df = self._normalize_prices(raw_prices)
-        X = df[self.FEATURE_COLS]
+        X = df[self.feature_cols]
         scaler = StandardScaler()
         X_normalized = scaler.fit_transform(X)
         y = df["price"]
@@ -200,43 +164,23 @@ class PriceModel:
         r2 = float(r2_score(y_test, test_pred))
         return pipe, scaler, df, {"mse": mse, "r2": r2}
 
-    # Train and evaluate model
-    # def _train_and_eval(self, raw_prices: str):
-    #     # Normalize
-    #     df = self._normalize_prices(raw_prices)
-    #     X = df[self.FEATURE_COLS]
-    #     scaler = StandardScaler()
-    #     X_normalized = scaler.fit_transform(X)
-    #     y = df["price"]
-
-    #     #Split and create training pipeline
-    #     X_train, X_test, y_train, y_test = train_test_split(X_normalized, y, test_size=0.3, random_state=42)
-    #     pipe = Pipeline([("rf", RandomForestRegressor(
-    #         n_estimators=600, max_depth=14, min_samples_leaf=10, max_features="sqrt",
-    #         bootstrap=True, n_jobs=-1, random_state=42))])
-    #     pipe.fit(X_train, y_train)
-
-    #     # Generate Results and metrics
-    #     test_pred = pipe.predict(X_test)
-    #     mse = float(mean_squared_error(y_test, test_pred))
-    #     r2 = float(r2_score(y_test, test_pred))
-    #     return pipe, scaler, df, {"mse": mse, "r2": r2}
-
     # Generate training graph to display model performance
     def _generate_training_graph(self, json_obj: str):
         # Load model artifacts and setup dataframe
-        pipe = joblib.load(self.model_path)
-        scaler = joblib.load(self.scaler_path)
+        if s3_storage_manager.s3_client:
+            pipe = s3_storage_manager.download_model_or_scaler(self.model_path)
+            scaler = s3_storage_manager.download_model_or_scaler(self.scaler_path)
+        else:
+            pipe = joblib.load(self.model_path)
+            scaler = joblib.load(self.scaler_path)
         df = pd.DataFrame(json_obj)
         df = self._normalize_prices(df)
-        X = df[self.FEATURE_COLS]
+        X = df[self.feature_cols]
         X_normalized = scaler.transform(X)
         y = df['price']
         pred = pipe.predict(X_normalized)
         df['predicted'] = pred
         df = df.sort_values('time')
-
-        #os.makedirs(self.GRAPH_DIR, exist_ok=True)
         buf = io.BytesIO()
 
         # Create graph
@@ -248,13 +192,6 @@ class PriceModel:
         plt.title(f'Actual vs Predicted Price for user {self.username}, item {self.item_name}')
         plt.legend()
         plt.tight_layout()
-
-        # plot_path = os.path.join(self.GRAPH_DIR, f"model_training_{self.username}_{self.item_id}.png")
-        # plt.savefig(plot_path)
-        # plt.close()
-        # print(f"Graph saved to {plot_path}")
-        # return plot_path
-
         plt.savefig(buf, format='png')
         plt.close()
         buf.seek(0)
@@ -262,7 +199,6 @@ class PriceModel:
 
     # Generate prediction graph for a given predicitions
     def _generate_prediction_graph(self, prediction_df: pd.DataFrame):
-        #os.makedirs(self.GRAPH_DIR, exist_ok=True)
         buf = io.BytesIO()
         plt.figure(figsize=(12, 6))
         plt.plot(prediction_df['time'], prediction_df['predicted_price'], label='Predicted Price', marker='x')
@@ -271,51 +207,81 @@ class PriceModel:
         plt.title(f'Predicted Price for user {self.username}, item {self.item_name}')
         plt.legend()
         plt.tight_layout()
-
-        #plot_path = os.path.join(self.GRAPH_DIR, f"price_prediction_{self.username}_{self.item_id}.png")
-        # plt.savefig(plot_path)
-        # plt.close()
-        # print(f"Prediction graph saved to {plot_path}")
-        # return plot_path
-
         plt.savefig(buf, format='png')
         plt.close()
         buf.seek(0)
         return buf.getvalue()
     
+    # Save model artifacts locally
+    def _save_model_data_local(self, pipe, scaler, feature_means, data_hash):
+        try:
+            # Ensure directories exist
+            print(f"Ensuring directories exist: {self.MODEL_DIR}, {self.SCALER_DIR}, {self.FEATURES_DIR}")
+            os.makedirs(self.MODEL_DIR, exist_ok=True)
+            os.makedirs(self.SCALER_DIR, exist_ok=True)
+            os.makedirs(self.FEATURES_DIR, exist_ok=True)
+            print("Directories created successfully")
+
+            # Model
+            model_path = os.path.join(self.MODEL_DIR, f"model_{self.user_id}_{self.item_id}_{data_hash}.joblib")
+            joblib.dump(pipe, model_path)
+            
+            # Scaler
+            scaler_path = os.path.join(self.SCALER_DIR, f"scaler_{self.user_id}_{self.item_id}_{data_hash}.joblib")
+            joblib.dump(scaler, scaler_path)
+            
+            # Feature stats
+            stats_path = os.path.join(self.FEATURES_DIR, f"feature_means_{self.user_id}_{self.item_id}_{data_hash}.json")
+            with open(stats_path, 'w') as f:
+                json.dump(feature_means, f)
+            
+            return model_path, scaler_path, stats_path
+        except Exception as e:
+            raise RuntimeError(f"Failed to save model data locally: {e}")
+    
+    # Save model artifacts to S3
+    def _save_model_data_s3(self, pipe, scaler, feature_means, data_hash):
+        try:
+            # Model
+            model_key = f"models/model_{self.user_id}_{self.item_id}_{data_hash}.joblib"
+            s3_storage_manager.upload_model_or_scaler(pipe, model_key)
+            
+            # Scaler
+            scaler_key = f"scalers/scaler_{self.user_id}_{self.item_id}_{data_hash}.joblib"
+            s3_storage_manager.upload_model_or_scaler(scaler, scaler_key)
+
+            # Feature stats
+            stats_key = f"features/feature_means_{self.user_id}_{self.item_id}_{data_hash}.json"
+            s3_storage_manager.upload_json_data(json.dumps(feature_means), stats_key)
+            return model_key, scaler_key, stats_key
+        except Exception as e:
+            raise RuntimeError(f"Failed to save model data to S3: {e}")
+
     # Create model from raw price data
     def create_model(self, raw_prices: str):
         try:
             df = self._normalize_prices(raw_prices)
             time_stamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
-            data_hash = self._hash_dataset(self.user_id, self.item_id, time_stamp, df)
-
-            # Setup directories and file paths
-            save_name = f"{data_hash}"
-            model_path = f"{self.MODEL_DIR}model_{save_name}.joblib"
-            scaler_path = f"{self.SCALER_DIR}scaler_{save_name}.joblib"
-            stats_path = f"{self.FEATURES_DIR}feature_means_{save_name}.json"
-            os.makedirs(self.MODEL_DIR, exist_ok=True)
-            os.makedirs(self.SCALER_DIR, exist_ok=True)
-            os.makedirs(self.FEATURES_DIR, exist_ok=True)
-
-            # Create and save model artifacts
-            pipe, scaler, df, metrics = self._train_and_eval(raw_prices)
-            joblib.dump(pipe, model_path)
-            joblib.dump(scaler, scaler_path)
+            data_hash = self._hash_dataset(time_stamp, df)
+            
+            pipe, scaler, df, metrics = self._train_and_eval_redis(raw_prices)
             feature_means = {
                 "volume": float(df["volume"].mean()),
                 "price_rolling_mean_7": float(df["price_rolling_mean_7"].mean()),
                 "price_diff": float(df["price_diff"].mean()),
                 "volume_rolling_mean_7": float(df["volume_rolling_mean_7"].mean())
             }
-            with open(stats_path, "w") as f:
-                json.dump(feature_means, f)
-
+            # Setup directories and file paths
+            if s3_storage_manager.s3_client:
+                model_path, scaler_path, stats_path = self._save_model_data_s3(pipe, scaler, feature_means, data_hash)
+            else:
+                model_path, scaler_path, stats_path = self._save_model_data_local(pipe, scaler, feature_means, data_hash)
+            
+            # Set instance variables for later use
             self.model_path = model_path
             self.scaler_path = scaler_path
             self.stats_path = stats_path
-
+            
             # Generate and return the generated graphs
             graph = self._generate_training_graph(raw_prices)
             return {
@@ -335,19 +301,15 @@ class PriceModel:
     def generate_prediction(self, start_time: str, end_time: str, model_path: str = None, scaler_path: str = None, stats_path: str = None):
         try:
             # Load model artifacts
-            if not all([model_path, scaler_path, stats_path]):
-                model_path = self.model_path
-                scaler_path = self.scaler_path
-                stats_path = self.stats_path
-
-            #print(f"model_path: {model_path}")
-            #print(f"scaler_path: {scaler_path}")
-            #print(f"stats_path: {stats_path}")
-
-            pipe = joblib.load(model_path)
-            scaler = joblib.load(scaler_path)
-            with open(stats_path, "r") as f:
-                feature_means = json.load(f)
+            if s3_storage_manager.s3_client:
+                pipe = s3_storage_manager.download_model_or_scaler(model_path)
+                scaler = s3_storage_manager.download_model_or_scaler(scaler_path)
+                feature_means = s3_storage_manager.download_json_data(stats_path)
+            else:
+                pipe = joblib.load(model_path)
+                scaler = joblib.load(scaler_path)
+                with open(stats_path, "r") as f:
+                    feature_means = json.load(f)
 
             # Create prediction DataFrame
             times = pd.date_range(start=start_time, end=end_time, freq='D')
@@ -376,26 +338,3 @@ class PriceModel:
             return { "result": result, "graph": graph }
         except Exception as e:
             raise RuntimeError(f"Error in generate_prediction: {e}")
-
-# TESTING
-if __name__ == "__main__":
-    user_id = 1
-    item_id = 1
-    with open("price_history_raw.json", "r") as f:
-        raw_json = json.load(f)
-    # Convert list of lists to list of dicts
-    raw_prices = [
-        {"time": row[0], "price": row[1], "volume": row[2]}
-        for row in raw_json["prices"]
-    ]
-    model = PriceModel(user_id, item_id)
-    model_info = model.create_model(raw_json)
-    #print("Model info:", model_info)
-
-    start_time = "2025-07-14"
-    end_time = "2025-10-18"
-    prediction = model.generate_prediction(
-        start_time,
-        end_time
-    )
-    #print(f"Prediction generated for {start_time} to {end_time} : {prediction}")

@@ -3,6 +3,7 @@ from fastapi.responses import Response
 from app.auth.jwt import authenticate_token
 from app.utils.ml_utils import validate_price_history, PriceModel
 from app.models import model_save_ml_index, model_get_ml_index, model_get_group_items, model_get_group_by_id, model_delete_ml_index
+from app.utils.utils_redis import redis_cache
 from datetime import datetime
 import base64, os
 
@@ -59,7 +60,9 @@ async def group_train_model(request: Request, user=Depends(authenticate_token)):
         if not results:
             raise HTTPException(status_code=400, detail="No models trained (no price history for any items)")
 
+        # Invalidate cache for this group's models
         # If only one item, return the singular graph
+        await redis_cache.delete(f"group:{group_id}:models:{user['user_id']}")
         if len(results) == 1:
             return Response(content=results[0]["graph"], media_type="image/png")
 
@@ -73,9 +76,17 @@ async def group_train_model(request: Request, user=Depends(authenticate_token)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to train models for group: {str(e)}")
 
-# Get a group that have generated models
+# Get a group that have generated models (Read: Cache result)
 async def get_group_with_models(group_id: int, user=Depends(authenticate_token)):
     try:
+        # Check cache first
+        cache_key = f"group:{group_id}:models:{user['user_id']}"
+        cached = await redis_cache.get(cache_key)
+        if cached:
+            print("Cache hit for group model items")
+            return cached
+        
+        # Cache miss: Query DB and cache
         group = model_get_group_by_id(group_id)
         if not group or group.get("user_id") != user["user_id"]:
             raise HTTPException(status_code=404, detail="Group not found")
@@ -95,11 +106,13 @@ async def get_group_with_models(group_id: int, user=Depends(authenticate_token))
         if not items_with_models:
             raise HTTPException(status_code=404, detail="No generated models found for this group")
 
-        return {
+        result = {
             "group_id": group_id,
             "group_name": group["group_name"],
             "items": items_with_models
         }
+        await redis_cache.set(cache_key, result, ttl=300)
+        return result
     except HTTPException:
         raise
     except Exception as e:
@@ -120,7 +133,6 @@ async def delete_group_model(group_id: int, user=Depends(authenticate_token)):
 
         # Delete from DB
         result = model_delete_ml_index(user["user_id"], group_id)
-        #print(result)
         if result.get("deleted"):
             # Delete files from disk
             for f in model_files:
@@ -129,6 +141,9 @@ async def delete_group_model(group_id: int, user=Depends(authenticate_token)):
                         os.remove(f)
                     except Exception as e:
                         print(f"Warning: Could not delete {f}: {e}")
+            
+            # Invalidate cache for this group's models
+            await redis_cache.delete(f"group:{group_id}:models:{user['user_id']}")
             return {"success": True, "message": "Models deleted for group", "group_id": group_id}
         else:
             raise HTTPException(status_code=404, detail="No models found for this group or user")

@@ -9,17 +9,19 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
-from .utils_redis import RedisJobQueue
+from queue import Queue, Full
 from .utils_s3 import S3StorageManager
-import os, json, threading, time, uuid, base64
+import os, json, threading
+from distutils.util import strtobool 
 
-# Global Redis job queue instance
-redis_job_queue = RedisJobQueue()
+# Limit concurrent trainings
+MAX_CONCURRENT_TRAININGS = 2
+training_semaphore = threading.Semaphore(MAX_CONCURRENT_TRAININGS)
 
 # Global S3 storage manager instance
 s3_storage_manager = S3StorageManager()
 
-LOCAL_STORAGE = os.environ.get("LOCAL_STORAGE")
+LOCAL_STORAGE = bool(strtobool(os.environ.get("LOCAL_STORAGE", "False")))
 
 # Validate json price history structure
 def validate_price_history(price_history: dict):
@@ -49,13 +51,19 @@ class PriceModel:
     Designed for use with time series price data, it generates future price predictions (utilizing random forests).
     """
 
-    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     QUEUE_STATUS_PATH = os.path.join(BASE_DIR, "tmp/queue_status.txt")
     MODEL_DIR = os.path.join(BASE_DIR, "tmp/models/")
     SCALER_DIR = os.path.join(BASE_DIR, "tmp/scalers/")
     FEATURES_DIR = os.path.join(BASE_DIR, "tmp/features/")
+    GRAPH_DIR = os.path.join(BASE_DIR, "tmp/graphs/")
+    FEATURE_COLS = [
+        "time_numeric", "volume", "day_of_week", "month", "year", "day",
+        "is_weekend", "price_rolling_mean_7", "price_diff", "volume_rolling_mean_7"
+    ]
 
-    # Shared Redis-based queue for all training instances
+    # Shared queue for all training instances among users
+    shared_queue = Queue(maxsize=20)
     _worker_started = False
 
     def __init__(self, user_id: int, username: str, item_id: int, item_name: str):
@@ -64,47 +72,77 @@ class PriceModel:
         self.item_id = item_id
         self.item_name = item_name
 
-        self.feature_cols = [
-            "time_numeric", "volume", "day_of_week", "month", "year", "day",
-            "is_weekend", "price_rolling_mean_7", "price_diff", "volume_rolling_mean_7"
-        ]
-    
-    # Update _start_worker to use RedisJobQueue method
-    def _start_worker(self):
-        if not PriceModel._worker_started:
-            PriceModel._worker_started = True
-            worker_thread = threading.Thread(target=redis_job_queue.redis_queue_worker, args=(PriceModel,), daemon=True)
-            worker_thread.start()
+    # Get a snapshot of the queue contents
+    @classmethod
+    def write_queue_status(cls):
+        items = list(cls.shared_queue.queue)
+        with open(cls.QUEUE_STATUS_PATH, "w") as f:
+            f.write("\n")
+            f.write("="*30 + "\n")
+            f.write("   PriceModel Training Queue\n")
+            f.write("="*30 + "\n")
+            if not items:
+                f.write("Queue is empty.\n")
+            else:
+                for idx, job in enumerate(items, 1):
+                    desc = job.get("func", None)
+                    if desc:
+                        desc = desc.__name__
+                    else:
+                        desc = str(job)
+                    f.write(f"{idx}. Job: {desc}\n")
+            f.write("="*30 + "\n")
+            f.write(f"Total jobs in queue: {len(items)}\n")
+            f.write("="*30 + "\n")
 
-    # Update _train_and_eval to use dynamic check
-    def _train_and_eval_redis(self, raw_prices: str):
-        job_id = str(uuid.uuid4())
-        job_data = {
-            "func": "_train_and_eval_actual",
-            "args": [self.user_id, self.username, self.item_id, self.item_name, raw_prices],
-            "kwargs": {},
-            "timestamp": time.time(),
-            "job_id": job_id
-        }
-        redis_job_queue.enqueue(job_data)
-        self._start_worker()
-        
-        # Wait for result
+    # Start the background worker
+    @classmethod
+    def _start_worker(cls):
+        if not cls._worker_started:
+            t = threading.Thread(target=cls._queue_worker, daemon=True)
+            t.start()
+            cls._worker_started = True
+
+    # Background worker for processing jobs
+    @classmethod
+    def _queue_worker(cls):
         while True:
-            result_str = redis_job_queue.redis_client.get(f"job_result:{job_id}")
-            if result_str:
-                result_dict = json.loads(result_str)
-                if "error" in result_dict:
-                    raise RuntimeError(result_dict["error"])
-                # Deserialize
-                pipe = joblib.load(io.BytesIO(base64.b64decode(result_dict["pipe"])))
-                scaler = joblib.load(io.BytesIO(base64.b64decode(result_dict["scaler"])))
-                df = pd.read_json(io.StringIO(result_dict["df"]))
-                metrics = json.loads(result_dict["metrics"])
-                # Clean up
-                redis_job_queue.redis_client.delete(f"job_result:{job_id}")
-                return pipe, scaler, df, metrics
-            time.sleep(1)
+            job = cls.shared_queue.get()
+            if job is None:
+                break
+            try:
+                result = job["func"](*job["args"], **job["kwargs"])
+                job["result_queue"].put(result)
+            except Exception as e:
+                job["result_queue"].put(e)
+            finally:
+                cls.shared_queue.task_done()
+
+    # Add training job to the queue
+    def _train_and_eval(self, raw_prices: str):
+        acquired = training_semaphore.acquire(blocking=False)
+        if not acquired:
+            raise RuntimeError("Server is busy. Please try again later.")
+
+        try:
+            self._start_worker()
+            result_queue = Queue()
+            try:
+                PriceModel.shared_queue.put({
+                    "func": PriceModel._train_and_eval_actual,
+                    "args": (self, raw_prices),
+                    "kwargs": {},
+                    "result_queue": result_queue
+                }, block=False)
+            except Full:
+                raise RuntimeError("Training queue is full. Please try again later.")
+            PriceModel.write_queue_status()
+            result = result_queue.get()
+            if isinstance(result, Exception):
+                raise result
+            return result
+        finally:
+            training_semaphore.release()
     
     # Normalize price data
     @staticmethod
@@ -134,21 +172,23 @@ class PriceModel:
         return df
 
     # Generate hash for dataset
-    def _hash_dataset(self, timestamp: int, df: pd.DataFrame):
+    @staticmethod
+    def _hash_dataset(user_id: int, item_id: int, timestamp: int, df: pd.DataFrame):
         buf = io.BytesIO()
-        df[self.feature_cols + ["price"]].to_parquet(buf, index=False)
+        df[PriceModel.FEATURE_COLS + ["price"]].to_parquet(buf, index=False)
         hash_input = (
-            str(self.user_id).encode("utf-8") +
-            str(self.item_id).encode("utf-8") +
+            str(user_id).encode("utf-8") +
+            str(item_id).encode("utf-8") +
             str(timestamp).encode("utf-8") +
             buf.getvalue()
         )
         return hashlib.sha256(hash_input).hexdigest()[:16]
 
+    @staticmethod
     def _train_and_eval_actual(self, raw_prices: str):
         # Normalize
         df = self._normalize_prices(raw_prices)
-        X = df[self.feature_cols]
+        X = df[PriceModel.FEATURE_COLS]
         scaler = StandardScaler()
         X_normalized = scaler.fit_transform(X)
         y = df["price"]
@@ -156,8 +196,8 @@ class PriceModel:
         # Split and create training pipeline
         X_train, X_test, y_train, y_test = train_test_split(X_normalized, y, test_size=0.3, random_state=42)
         pipe = Pipeline([("rf", RandomForestRegressor(
-            n_estimators=750, max_depth=20, min_samples_leaf=5, max_features="sqrt",
-            bootstrap=True, n_jobs=2, random_state=42))])
+            n_estimators=600, max_depth=20, min_samples_leaf=5, max_features="sqrt",
+            bootstrap=True, n_jobs=1, random_state=42))])
         pipe.fit(X_train, y_train)
 
         # Generate Results and metrics
@@ -169,18 +209,19 @@ class PriceModel:
     # Generate training graph to display model performance
     def _generate_training_graph(self, json_obj: str):
         # Load model artifacts and setup dataframe
-        if s3_storage_manager.s3_client:
-            pipe = s3_storage_manager.download_model_or_scaler(self.model_path)
-            scaler = s3_storage_manager.download_model_or_scaler(self.scaler_path)
-        elif LOCAL_STORAGE:
+        if LOCAL_STORAGE:
+            print("Using local storage to save model artifacts")
             pipe = joblib.load(self.model_path)
             scaler = joblib.load(self.scaler_path)
+        elif s3_storage_manager.s3_client:
+            pipe = s3_storage_manager.download_model_or_scaler(self.model_path)
+            scaler = s3_storage_manager.download_model_or_scaler(self.scaler_path)
         else:
             raise RuntimeError("No valid storage method configured for loading model artifacts. Ensure S3 client is available or LOCAL_STORAGE is set.")
 
         df = pd.DataFrame(json_obj)
         df = self._normalize_prices(df)
-        X = df[self.feature_cols]
+        X = df[PriceModel.FEATURE_COLS]
         X_normalized = scaler.transform(X)
         y = df['price']
         pred = pipe.predict(X_normalized)
@@ -202,7 +243,7 @@ class PriceModel:
         buf.seek(0)
         return buf.getvalue()
 
-    # Generate prediction graph for a given predicitions
+    # Generate prediction graph for a given predictions
     def _generate_prediction_graph(self, prediction_df: pd.DataFrame):
         buf = io.BytesIO()
         plt.figure(figsize=(12, 6))
@@ -257,7 +298,7 @@ class PriceModel:
 
             # Feature stats
             stats_key = f"features/feature_means_{self.user_id}_{self.item_id}_{data_hash}.json"
-            s3_storage_manager.upload_json_data(json.dumps(feature_means), stats_key)
+            s3_storage_manager.upload_json_data(feature_means, stats_key)
             return model_key, scaler_key, stats_key
         except Exception as e:
             raise RuntimeError(f"Failed to save model data to S3: {e}")
@@ -267,9 +308,9 @@ class PriceModel:
         try:
             df = self._normalize_prices(raw_prices)
             time_stamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
-            data_hash = self._hash_dataset(time_stamp, df)
+            data_hash = self._hash_dataset(self.user_id, self.item_id, time_stamp, df)
             
-            pipe, scaler, df, metrics = self._train_and_eval_redis(raw_prices)
+            pipe, scaler, df, metrics = self._train_and_eval(raw_prices)
             feature_means = {
                 "volume": float(df["volume"].mean()),
                 "price_rolling_mean_7": float(df["price_rolling_mean_7"].mean()),
@@ -277,11 +318,12 @@ class PriceModel:
                 "volume_rolling_mean_7": float(df["volume_rolling_mean_7"].mean())
             }
             # Setup directories and file paths
-            if s3_storage_manager.s3_client:
+            if LOCAL_STORAGE:
+                print("Using local storage to save model artifacts")
+                model_path, scaler_path, stats_path = self._save_model_data_local(pipe, scaler, feature_means, data_hash)
+            elif s3_storage_manager.s3_client:
                 print("Using S3 to save model artifacts")
                 model_path, scaler_path, stats_path = self._save_model_data_s3(pipe, scaler, feature_means, data_hash)
-            elif LOCAL_STORAGE:
-                model_path, scaler_path, stats_path = self._save_model_data_local(pipe, scaler, feature_means, data_hash)
             else:
                 raise RuntimeError("No valid storage method configured for loading model artifacts. Ensure S3 client is available or LOCAL_STORAGE is set.")
             
@@ -309,16 +351,17 @@ class PriceModel:
     def generate_prediction(self, start_time: str, end_time: str, model_path: str = None, scaler_path: str = None, stats_path: str = None):
         try:
             # Load model artifacts
-            if s3_storage_manager.s3_client:
-                print("Using S3 to load model artifacts")
-                pipe = s3_storage_manager.download_model_or_scaler(model_path)
-                scaler = s3_storage_manager.download_model_or_scaler(scaler_path)
-                feature_means = s3_storage_manager.download_json_data(stats_path)
-            elif LOCAL_STORAGE:
+            if LOCAL_STORAGE:
+                print("Using local storage to save model artifacts")
                 pipe = joblib.load(model_path)
                 scaler = joblib.load(scaler_path)
                 with open(stats_path, "r") as f:
                     feature_means = json.load(f)
+            elif s3_storage_manager.s3_client:
+                print("Using S3 to load model artifacts")
+                pipe = s3_storage_manager.download_model_or_scaler(model_path)
+                scaler = s3_storage_manager.download_model_or_scaler(scaler_path)
+                feature_means = s3_storage_manager.download_json_data(stats_path)    
             else:
                 raise RuntimeError("No valid storage method configured for loading model artifacts. Ensure S3 client is available or LOCAL_STORAGE is set.")
 
@@ -349,3 +392,26 @@ class PriceModel:
             return { "result": result, "graph": graph }
         except Exception as e:
             raise RuntimeError(f"Error in generate_prediction: {e}")
+
+# TESTING
+if __name__ == "__main__":
+    user_id = 1
+    item_id = 1
+    with open("price_history_raw.json", "r") as f:
+        raw_json = json.load(f)
+    # Convert list of lists to list of dicts
+    raw_prices = [
+        {"time": row[0], "price": row[1], "volume": row[2]}
+        for row in raw_json["prices"]
+    ]
+    model = PriceModel(user_id, "testuser", item_id, "testitem")
+    model_info = model.create_model(raw_prices)
+    #print("Model info:", model_info)
+
+    start_time = "2025-07-14"
+    end_time = "2025-10-18"
+    prediction = model.generate_prediction(
+        start_time,
+        end_time
+    )
+    #print(f"Prediction generated for {start_time} to {end_time} : {prediction}")

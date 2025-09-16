@@ -101,7 +101,7 @@ class S3StorageManager:
             print(f"Failed to upload JSON to S3: {e}")
             return False
 
-    def download_json_data(self, json_key: str) -> Optional[Dict[str, Any]]:
+    def download_json_data(self, key: str) -> Optional[Dict[str, Any]]:
         """
         Download JSON data from S3.
         """
@@ -109,22 +109,14 @@ class S3StorageManager:
             return None
 
         try:
-            # Download from S3
-            response = self.s3_client.get_object(
-                Bucket=self.bucket_name,
-                Key=json_key
-            )
-
-            # Parse JSON
-            json_string = response['Body'].read().decode('utf-8')
-            data = json.loads(json_string)
-            print(f"JSON data downloaded from s3://{self.bucket_name}/{json_key}")
-            return data
+            response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
+            data = response['Body'].read().decode('utf-8')
+            print(f"JSON data downloaded from s3://{self.bucket_name}/{key}")
+            return json.loads(data)
         except ClientError as e:
             print(f"Failed to download JSON from S3: {e}")
             return None
 
-    # TODO: IMPLEMENT THE BELLOW
     def delete_file(self, file_key: str) -> bool:
         """
         Delete a file from S3.
@@ -143,6 +135,7 @@ class S3StorageManager:
             print(f"Failed to delete file from S3: {e}")
             return False
 
+    # TODO: IMPLEMENT FOR S3 urls
     def file_exists(self, file_key: str) -> bool:
         """
         Check if a file exists in S3.

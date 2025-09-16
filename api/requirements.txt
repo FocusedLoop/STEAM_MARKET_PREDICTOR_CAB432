@@ -1,5 +1,5 @@
 fastapi
-mariadb
+psycopg2-binary
 uvicorn
 dotenv
 PyJWT

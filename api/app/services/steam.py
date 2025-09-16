@@ -5,9 +5,12 @@ from urllib.parse import urlencode
 from collections import Counter
 from typing import Optional
 
-STEAM_COM_BASE = "https://steamcommunity.com"
-STEAM_API_BASE = "https://api.steampowered.com"
-API_KEY = os.getenv("STEAM_API_KEY", "74540CE2420D90E0816FBA44B026B141")
+# STEAM_COM_BASE = "https://steamcommunity.com"
+# STEAM_API_BASE = "https://api.steampowered.com"
+STEAM_COM_BASE = os.getenv("STEAM_COM_BASE")
+STEAM_API_BASE = os.getenv("STEAM_API_BASE")
+
+API_KEY = os.getenv("STEAM_API_KEY")
 
 class steamAPI:
     """

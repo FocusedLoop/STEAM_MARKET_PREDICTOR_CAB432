@@ -1,5 +1,5 @@
 fastapi
-mariadb
+psycopg2-binary
 uvicorn
 dotenv
 PyJWT
@@ -9,3 +9,6 @@ scikit-learn
 matplotlib
 pyarrow
 fastparquet
+redis
+boto3
+joblib

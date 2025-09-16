@@ -1,10 +1,10 @@
 from app.db import get_connection
-import mariadb
+import psycopg2
 
 # Set the has_model flag for a group
-def model_set_group_has_ml(conn: mariadb.Connection, group_id: int, has_model: bool):
+def model_set_group_has_ml(conn: psycopg2.extensions.connection, group_id: int, has_model: bool):
     cursor = conn.cursor()
-    cursor.execute("UPDATE groups SET has_model = ? WHERE id = ?", (int(has_model), group_id))
+    cursor.execute("UPDATE groups SET has_model = %s WHERE id = %s", (has_model, group_id))
     conn.commit()
 
 # Save a new model index into the database
@@ -13,12 +13,12 @@ def model_save_ml_index(user_id: int, group_id: int, item_id: int, data_hash: st
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO model_index (user_id, group_id, item_id, data_hash, model_path, scaler_path, stats_path)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
     """, (user_id, group_id, item_id, data_hash, model_path, scaler_path, stats_path))
+    cursor.execute("SELECT LASTVAL()")
+    model_id = cursor.fetchone()[0]
     conn.commit()
-    model_id = cursor.lastrowid
     model_set_group_has_ml(conn, group_id, True)
-
     cursor.close()
     conn.close()
     return {
@@ -35,7 +35,7 @@ def model_get_ml_index(user_id: int, item_id: int):
     cursor = conn.cursor()
     cursor.execute("""
         SELECT * FROM model_index
-        WHERE user_id = ? AND item_id = ?
+        WHERE user_id = %s AND item_id = %s
         ORDER BY created_at DESC LIMIT 1
     """, (user_id, item_id))
     row = cursor.fetchone()

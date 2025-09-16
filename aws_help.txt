@@ -3,7 +3,7 @@
 
 # setup #
 aws configure sso --use-device-code
-aws ssm start-session --target=i-0f279508021689552
+aws ssm start-session --target=i-044e1085de13ea78f
 sudo -iu ubuntu
 
 aws ecr create-repository --repository-name csgo-market-predictor --region ap-southeast-2
@@ -12,17 +12,17 @@ aws ecr get-login-password --region ap-southeast-2 \
 | docker login --username AWS --password-stdin 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com
 
 # once setup for updating repo #
-docker build -t n11275561_assessment_1:latest .
+docker build -t a2-pairs-5-a2-assessment2-repo:latest .
 
-docker tag n11275561_assessment_1:latest 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/n11275561_assessment_1:latest
+docker tag a2-pairs-5-a2-assessment2-repo:latest 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/a2-pairs-5-a2-assessment2-repo:latest
 
-docker push 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/n11275561_assessment_1:latest
+docker push 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/a2-pairs-5-a2-assessment2-repo:latest
 
 # ON EC2 #
 aws ecr get-login-password --region ap-southeast-2 \
 | docker login --username AWS --password-stdin 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com
 
-docker pull 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/n11275561_assessment_1:latest
+docker pull 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/a2-pairs-5-a2-assessment2-repo:latest
 
 docker compose up -d
 
@@ -31,11 +31,11 @@ docker compose up -d
 # Pushing to image
 export GIT_SHA=$(git rev-parse --short HEAD)
 
-docker build -t n11275561_assessment_1:$GIT_SHA ./api
+docker build -t a2-pairs-5-a2-assessment2-repo:$GIT_SHA ./api
 
-docker tag n11275561_assessment_1:$GIT_SHA 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/n11275561_assessment_1:latest
+docker tag a2-pairs-5-a2-assessment2-repo:$GIT_SHA 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/a2-pairs-5-a2-assessment2-repo:latest
 
-docker push 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/n11275561_assessment_1:latest
+docker push 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/a2-pairs-5-a2-assessment2-repo:latest
 
 docker build -t api-web:$GIT_SHA ./api/web
 
@@ -45,7 +45,11 @@ docker push 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/api-web:latest
 
 
 # Pulling from image
-docker pull 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/n11275561_assessment_1:latest
+docker pull 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/a2-pairs-5-a2-assessment2-repo:latest
 docker pull 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/api-web:latest
 
 
+# Parametr Store
+aws ssm put-parameter --name "/steam-market-predictor/jwt-secret" --value "e9aae26be08551392be664d620fb422350a30349899fc254a0f37bfa1b945e36ff20d25b12025e1067f9b69e8b8f2ef0f767f6fff6279e5755668bf4bae88588" --type "SecureString" --region ap-southeast-2 --tags "Key=qut-username,Value=n11275561@qut.edu.au" "Key=qut-username2,Value=n11803444@qut.edu.au" "Key=assessment,Value=a2-pairs-5-a2-assessment-2"
+
+aws ssm put-parameter --name "/steam-market-predictor/steam-api-key" --value "74540CE2420D90E0816FBA44B026B141" --type "SecureString" --region ap-southeast-2 --tags "Key=qut-username,Value=n11275561@qut.edu.au" "Key=qut-username2,Value=n11803444@qut.edu.au" "Key=assessment,Value=a2-pairs-5-a2-assessment-2"

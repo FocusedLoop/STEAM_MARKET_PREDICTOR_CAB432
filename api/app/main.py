@@ -1,11 +1,14 @@
-from dotenv import load_dotenv
-load_dotenv()
-
 from fastapi import FastAPI
-from app.routes import router_items, router_users, router_steam
+from dotenv import load_dotenv
+from .aws_values import load_parameters
 import uvicorn, os
 
-# Initialize API
+load_dotenv()
+os.environ.update(load_parameters())
+
+from app.routes import router_items, router_users, router_steam
+
+# Initialize APIno
 SITE_PORT = os.environ.get("SITE_PORT")
 
 app = FastAPI(

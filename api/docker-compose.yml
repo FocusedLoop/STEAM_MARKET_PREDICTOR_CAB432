@@ -1,33 +1,23 @@
 services:
   server:
-    image: 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/n11275561_assessment_1:latest
+    image: 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/a2-pairs-5-a2-assessment2-repo:latest
     ports:
       - "3010:3010"
     env_file:
       - .env
-    environment:
-      - DB_HOST=db
-      - DB_USER=user
-      - DB_PASSWORD=pass
-      - DB_NAME=tasksdb
     depends_on:
-      - db
-  
+      - redis
+
   web:
     image: 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/api-web:latest
     ports:
       - "3009:3009"
     depends_on:
       - server
-  db:
-    image: mariadb:11
+  redis:
+    image: redis:7-alpine
     restart: always
-    environment:
-      - MARIADB_DATABASE=${DB_NAME}
-      - MARIADB_USER=${DB_USER}
-      - MARIADB_PASSWORD=${DB_PASSWORD}
-      - MARIADB_ROOT_PASSWORD=${DB_PASSWORD}
     ports:
-      - "3008:3008"
+      - "6379:6379"
 volumes:
   db_data:

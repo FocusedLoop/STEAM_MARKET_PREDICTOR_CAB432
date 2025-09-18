@@ -12,7 +12,7 @@ services:
       - DB_NAME=tasksdb
     depends_on:
       - db
-  
+
   web:
     image: 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/api-web:latest
     ports:

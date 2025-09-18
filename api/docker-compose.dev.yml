@@ -16,7 +16,7 @@ services:
       - DB_NAME=tasksdb
     depends_on:
       - db
-  
+
   web:
     build:
       context: ./web
@@ -35,8 +35,8 @@ services:
       - MARIADB_ROOT_PASSWORD=${DB_PASSWORD}
     ports:
       - "3008:3008"
-    # volumes:
-    #   - db_data:/var/lib/mysql
+    volumes:
+      - db_data:/var/lib/mysql
 
 volumes:
   db_data:

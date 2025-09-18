@@ -3,9 +3,15 @@ mariadb
 uvicorn
 dotenv
 PyJWT
-requests
 statsmodels
 scikit-learn
 matplotlib
 pyarrow
 fastparquet
+
+# AWS Cognito
+authlib 
+werkzeug 
+flask 
+requests
+pycognito

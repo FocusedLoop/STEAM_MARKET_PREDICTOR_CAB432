@@ -1,52 +1,57 @@
 from app.db import get_connection
 
-# Get user information and credentials
-def model_get_user_by_username(username: str):
+
+def model_get_or_create_user_profile(cognito_id: str, username: str):
     conn = get_connection()
+
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+    cursor.execute("SELECT * FROM users WHERE cognito_id = ?", (cognito_id,))
+
+    row = cursor.fetchone()
+
+    if row:
+        columns = [desc[0] for desc in cursor.description]
+
+        conn.close()
+
+        return dict(zip(columns, row))
+    else:
+        cursor.execute(
+            "INSERT INTO users (cognito_id, username) VALUES (?, ?)",
+            (cognito_id, username),
+        )
+        conn.commit()
+
+        user_id = cursor.lastrowid
+
+        conn.close()
+        return {"user_id": user_id, "cognito_id": cognito_id, "username": username}
+
+
+def model_get_user_by_cognito_id(cognito_id: str):
+    conn = get_connection()
+
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE cognito_id = ?", (cognito_id,))
+
     row = cursor.fetchone()
     columns = [desc[0] for desc in cursor.description]
+
     conn.close()
+
     return dict(zip(columns, row)) if row else None
 
-# Get user id from username
-def model_get_user_id_by_username(username: str):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM users WHERE username = ?", (username,))
-    row = cursor.fetchone()
-    conn.close()
-    return row[0] if row else None
 
-# Get steam id from username
-def model_get_steam_id_by_username(username: str):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT steam_id FROM users WHERE username = ?", (username,))
-    row = cursor.fetchone()
-    conn.close()
-    return row[0] if row else None
-
-# Create a new user
-def model_create_user(username: str, password: str, steam_id: int):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO users (username, password, steam_id) VALUES (?, ?, ?)",
-        (username, password, steam_id)
-    )
-    conn.commit()
-    user_id = cursor.lastrowid
-    conn.close()
-    return {"user_id": user_id, "username": username, "steam_id": steam_id}
-
-# Delete existing user
 def model_delete_user(user_id: int):
     conn = get_connection()
+
     cursor = conn.cursor()
     cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+
     conn.commit()
+
     deleted = cursor.rowcount > 0
+
     conn.close()
+
     return {"deleted": deleted}

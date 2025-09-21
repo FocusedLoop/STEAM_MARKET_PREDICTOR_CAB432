@@ -84,9 +84,6 @@ def create_model_index_table(conn: psycopg2.extensions.connection):
             group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
             item_id INTEGER NOT NULL,
             data_hash VARCHAR(32) NOT NULL,
-            model_path VARCHAR(255) NOT NULL,
-            scaler_path VARCHAR(255) NOT NULL,
-            stats_path VARCHAR(255) NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     """)

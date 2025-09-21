@@ -1,6 +1,6 @@
 import requests, json, sys, time, threading
 
-BASE_URL = "http://ec2-3-107-255-142.ap-southeast-2.compute.amazonaws.com:3010"
+BASE_URL = "http://ec2-13-236-117-13.ap-southeast-2.compute.amazonaws.com:3010"
 #BASE_URL = "http://localhost:3010"
 USERNAME = "testuser"
 PASSWORD = "testpass"
@@ -298,7 +298,7 @@ def test_group_models(token):
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-CONCURRENCY = 50 # Number of parallel requests
+CONCURRENCY = 2 # Number of parallel requests
 SUBMIT_DELAY = 0
 
 def worker(token, group_count, price_history):

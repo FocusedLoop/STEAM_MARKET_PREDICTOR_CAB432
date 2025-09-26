@@ -157,7 +157,23 @@ class S3StorageManager:
         Generate a presigned URL for downloading files from S3.
         """
         return self.generate_presigned_url(file_key, 'get_object', expiration)
+    
+    def delete_file(self, file_key: str) -> bool:
+        """
+        Delete a file from S3.
+        """
+        if not self.s3_client:
+            return False
 
+        try:
+            self.s3_client.delete_object(Bucket=self.bucket_name, Key=file_key)
+            print(f"File deleted from s3://{self.bucket_name}/{file_key}")
+            return True
+        except ClientError as e:
+            print(f"Failed to delete file from S3: {e}")
+            return False
+
+    # UNUSED
     def list_files(self, prefix: str = "") -> list:
         """
         List files in the S3 bucket with optional prefix.

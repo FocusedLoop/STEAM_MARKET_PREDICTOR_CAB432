@@ -9,74 +9,6 @@ from datetime import datetime
 import base64, os
 
 # Handle training groups of models, go through each item in the group and train them
-# async def group_train_model(request: Request, user=Depends(authenticate_token)):
-#     try:
-#         print("BEGINING GROUP TRAINING===============================")
-#         data = await request.json()
-#         group_id = data.get("group_id")
-#         if not group_id:
-#             raise HTTPException(status_code=400, detail="Group ID is required")
-        
-#         # Check if the group has a generated model
-#         group = model_get_group_by_id(group_id)
-#         if group.get("has_model"):
-#             raise HTTPException(status_code=400, detail="Models already exist for this group. Please delete them before retraining.")
-        
-#         group_items = model_get_group_items(user["user_id"], group_id)
-#         if not group_items:
-#             raise HTTPException(status_code=404, detail="Group not found or no items in group")
-
-#         results = []
-#         for item in group_items:
-#             item_id = item["id"]
-#             item_name = item["item_name"]
-#             item_json = item.get("item_json", {})
-#             price_history = item_json.get("prices")
-#             price_history = {"prices": price_history}
-
-#             # Validate JSON structure
-#             is_valid, error_msg = validate_price_history(price_history)
-#             if not is_valid:
-#                 raise HTTPException(status_code=400, detail=f"Invalid price history for item {item_id}: {error_msg}")
-
-#             model = PriceModel(user["user_id"], user["username"], item_id, item_name)
-#             model_info = model.create_model(price_history)
-#             save_info = model_save_ml_index(
-#                 user["user_id"],
-#                 group_id,
-#                 item_id,
-#                 model_info["data_hash"],
-#                 model_info["model_path"],
-#                 model_info["scaler_path"],
-#                 model_info["stats_path"]
-#             )
-#             results.append({
-#                 "item_id": item_id,
-#                 "item_name": item_name,
-#                 "save_info": save_info,
-#                 "graph": base64.b64encode(model_info["graph"]).decode("utf-8"),  # Base64 encode PNG bytes
-#                 "graph_url": model_info["graph_url"],  # Include URL
-#                 "metrics": model_info.get("metrics", {})
-#             })
-
-#         if not results:
-#             raise HTTPException(status_code=400, detail="No models trained (no price history for any items)")
-
-#         # Invalidate cache for this group's models
-#         # If only one item, return the singular graph and URL
-#         await redis_cache.delete(f"group:{group_id}:models:{user['user_id']}")
-#         if len(results) == 1:
-#             return {
-#                 "graph": results[0]["graph"],  # Base64 PNG
-#                 "graph_url": results[0]["graph_url"]  # URL
-#             }
-
-#         # If multiple, return a JSON with graphs and URLs
-#         return {"success": True, "trained_models": results}
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Failed to train models for group: {str(e)}")
 async def group_train_model(request: Request, user=Depends(authenticate_token)):
     try:
         print("BEGINING GROUP TRAINING===============================")
@@ -250,9 +182,6 @@ async def delete_group_model(group_id: int, user=Depends(authenticate_token)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete models for group: {str(e)}")
 
-
-#TODO: Upload trained model files to S3 and update DB paths accordingly
-# async def upload_group_models_to_s3(group_id: int, user=Depends(authenticate_token)):
 # NOTE: Graphs have no way to be deleted currently
 async def predict_item_prices(group_id: int, request: Request, user=Depends(authenticate_token)):
     try:

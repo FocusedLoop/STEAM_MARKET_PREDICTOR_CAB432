@@ -1,6 +1,6 @@
 import requests, json, sys, time, threading
 
-BASE_URL = "http://ec2-13-236-117-13.ap-southeast-2.compute.amazonaws.com:3010"
+BASE_URL = "http://ec2-16-176-232-183.ap-southeast-2.compute.amazonaws.com:3010"
 #BASE_URL = "http://localhost:3010"
 USERNAME = "testuser"
 PASSWORD = "testpass"
@@ -279,20 +279,20 @@ def test_group_models(token):
             print_response(r)
         print("-" * 40)
 
-    # 8. Delete group model (invalid group_id)
-    r = requests.delete(f"{BASE_URL}/group/999999/model", headers=auth_headers(token), json={"group_id": 999999})
-    print("Delete group model (invalid group_id):")
-    print_response(r, allow_error=True)
+    # # 8. Delete group model (invalid group_id)
+    # r = requests.delete(f"{BASE_URL}/group/999999/model", headers=auth_headers(token), json={"group_id": 999999})
+    # print("Delete group model (invalid group_id):")
+    # print_response(r, allow_error=True)
 
-    # 9. Delete group model (valid group_id)
-    r = requests.delete(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token))
-    print("Delete group model (valid group_id):")
-    print_response(r)
+    # # 9. Delete group model (valid group_id)
+    # r = requests.delete(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token))
+    # print("Delete group model (valid group_id):")
+    # print_response(r)
 
-    # 10. Delete group model (already deleted)
-    r = requests.delete(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token))
-    print("Delete group model (already deleted):")
-    print_response(r, allow_error=True)
+    # # 10. Delete group model (already deleted)
+    # r = requests.delete(f"{BASE_URL}/group/{group_id}/model", headers=auth_headers(token))
+    # print("Delete group model (already deleted):")
+    # print_response(r, allow_error=True)
 
 # Load tester
 

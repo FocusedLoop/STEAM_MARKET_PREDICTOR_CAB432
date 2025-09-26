@@ -1,167 +1,165 @@
-Assignment 1 - REST API Project - Response to Criteria
+Assignment 2 - Cloud Services Exercises - Response to Criteria
 ================================================
+
+Instructions
+------------------------------------------------
+- Keep this file named A2_response_to_criteria.md, do not change the name
+- Upload this file along with your code in the root directory of your project
+- Upload this file in the current Markdown format (.md extension)
+- Do not delete or rearrange sections.  If you did not attempt a criterion, leave it blank
+- Text inside [ ] like [eg. S3 ] are examples and should be removed
+
 
 Overview
 ------------------------------------------------
 
 - **Name:** Joshua Wlodarczyk
 - **Student number:** n11275561
+- **Partner name:** Zakk Wilson-Christian
+- **Partner number:** 
 - **Application name:** Steam Market Predictor
 - **Two line description:** The REST API predicts item prices over time using a Random Forest ML model trained on Steam market history data provided by the user. The web app helps users collect and upload this data, organize items into groups, and visualize predictions as graphs. This was all hosted on a Micro t3 instance
+- **EC2 instance name or ID:** i-044e1085de13ea78f
 
-
-Core criteria
 ------------------------------------------------
 
-### Containerise the app
+### Core - First data persistence service
 
-- **ECR Repository name:** n11275561_assessment_1
-- **Video timestamp:** 4:30 (aws) and 4:45 (Console)
-- **Relevant files:**
-    - docker-compose.dev.yml
-    - docker-compose.yml
-    - app/Dockerfile
-    - app/web/Dockerfile
-
-### Deploy the container
-
-- **EC2 instance ID:** i-0f279508021689552
-- **Video timestamp:** 4:30 (aws) and 4:45 (Console)
-
-### User login
-
-- **One line description:** MariaDB database with username, password, userid, steamid. Using JWTs for sessions
-- **Video timestamp:** 0:25
-- **Relevant files:**
-    - app/auth/jwt.py
-    - app/db/db.py
-    - app/models/models_users.py
-    - app/controllers/controllers_users.py
-    - .env.example
-
-### REST API
-
-- **One line description:** Rest API with endpoints and HTTP methods (GET, POST, PUT, DELETE), and appropiate status codes
-- **Video timestamp:** 3:25 (full breakdown), 0:40
-- **Relevant files:**
-    - app/routes/routes_items.py
-    - app/controllers/controllers_items.py
-    - app/controllers/controllers_ml.py
-    - app/routes/routes_steam.py
-    - app/controllers/controllers_steam.py
-    - app/routes/routes_users.py
-    - app/controllers/controllers_users.py
-
-### Data types
-
-- **One line description:** Application makes use of both structured relational data (model index database in MariaDB) and unstructured binary artifacts (joblib model and scaler files).  
-- **Video timestamp:** 1:52, 2:15, 0:23
-- **Relevant files:**  
-  - app/controllers/controllers_ml.py  
-  - app/models/models_ml.py  
-  - app/utils/ml_utils.py  
-  - tmp/  
-
-#### First kind
-
-- **One line description:** Model index database linking generated models to groups and items (stores id, user ownership, hash, model paths, flags, etc.)
-- **Type:** Structured
-- **Rationale:** Data is stored in MariaDB tables with a defined schema (ids, ownership, file paths, flags). This allows efficient queries to tie models back to users and groups.
-- **Video timestamp:** 2:58
-- **Relevant files:**
-  - app/controllers/controllers_ml.py
-  - app/models/models_ml.py
-  - app/utils/ml_utils.py
-
-#### Second kind
-
-- **One line description:** Model and Scaler joblib files generated during training
-- **Type:** UnStructured
-- **Rationale:** These are binary artifacts without a queryable schema. They cannot be stored or queried directly in MariaDB, only referenced by path from the model index.
-- **Video timestamp:** 4:05
-- **Relevant files:**
-  - app/utils/ml_utils.py
-  - app/controllers/controllers_ml.py
-  - tmp/.
-
-### CPU intensive task
-
-- **One line description:** Implementation of a shared job queue in `PriceModel` to handle machine learning tasks efficiently across multiple users.  
-- **Video timestamp:**  3:54
-- **Relevant files:** 
-  - app/utils/ml_utils.py  
-  - app/controllers/controllers_ml.py  
-  - tmp/queue_status.txt
-
-### CPU load testing
-
-- **One line description:** Stress testing the shared job queue to maintain steady CPU usage by keeping the queue full and monitoring performance.  
-- **Video timestamp:** 4:50
-- **Relevant files:**  
-  - app/utils/ml_utils.py  
-  - tmp/queue_status.txt  
-
-Additional criteria
-------------------------------------------------
-
-### Extensive REST API features
-
-- **One line description:** Not attempted
+- **AWS service name:**  AWS RDS
+- **What data is being stored?:** The entire database is a DynamoDB instance including user, items, groups, models for hash values indexing them to files in the s3 bucket
+- **Why is this service suited to this data?:** RDS provides a managed relational database with ACID transactions, complex queries (e.g., joining users, groups, and items), and data integrity for structured, interdependent data like user-owned groups and item price histories. It supports SQL for efficient retrieval and updates, which is essential for the app's group/item management and authentication features.
+- **Why is are the other services used not suitable for this data?:** S3 is designed for unstructured object storage (files/blobs), not relational queries or transactions. DynamoDB (NoSQL) could handle key-value lookups but lacks the relational schema and SQL support needed for complex relationships (e.g., user-group-item hierarchies) and joins.
+- **Bucket/instance/table name:** Used User and Schema s439 for tables "model_index", "group_items", "groups", "users"
 - **Video timestamp:**
 - **Relevant files:**
-    - 
+    - app/db/db.py
 
-### External API(s)
+### Core - Second data persistence service
 
-- **One line description:** Integrates the Steam Web API (IPlayerService, ISteamEconomy) and Steam Community endpoints as primary data sources to fetch owned games, user inventory, resolve `market_hash_name`, and generate price-history URLs for steam by the API.
-- **Video timestamp:** 1:37, 3:31
+- **AWS service name:** S3 Object Storage
+- **What data is being stored?:** ML model artifacts including trained model files (.joblib), scaler files (.joblib), feature statistics (.json), and training graphs (.png).
+- **Why is this service suited to this data?:** S3 is optimized for scalable, durable object storage of large binary files and unstructured data. It supports presigned URLs for secure, direct uploads/downloads without exposing credentials, and it's cost-effective for variable-sized ML artifacts that need global access and versioning.
+- **Why is are the other services used not suitable for this data?:** RDS is for structured relational data, not large binary files or blobs. DynamoDB can store small items but isn't ideal for multi-GB model files or direct file streaming; it would require additional logic for uploads/downloads and increase costs for large data. ElastiCache (Redis) is for in-memory caching, not persistent file storage.
+- **Bucket/instance/table name:** a2-pairs-5-a2-ml-models-s3-bucket 
+- **Video timestamp:**
 - **Relevant files:**
-  - app/services/steam.py
-  - app/controllers/controllers_steam.py
-  - app/routes/routes_steam.py
-  - .env.example
-  - web/web_page.py
+    - app/routes/routes_items.py
+    - app/controllers_ml.py
+    - app/utils/utils_s3.py
+    - app/models/models_ml.py
 
-### Additional types of data
+### Third data service
 
-- **One line description:** Application uses three distinct types of data: structured relational tables, unstructured model/data files, and hard saved json data in the tmp dir
-- **Video timestamp:** 3:55
-- **Relevant files:**   
-  - app/utils/ml_utils.py
-  - app/tmp/.
+- **AWS service name:**
+- **What data is being stored?:**
+- **Why is this service suited to this data?:**
+- **Why is are the other services used not suitable for this data?:**
+- **Bucket/instance/table name:**
+- **Video timestamp:**
+- **Relevant files:**
+    -
+
+### S3 Pre-signed URLs
+
+- **S3 Bucket names:** a2-pairs-5-a2-ml-models-s3-bucket 
+- **Video timestamp:**
+- **Relevant files:**
+    - app/utils/utils_s3.py
+    - app/controllers/controllers_ml.py
+
+### In-memory cache
+
+- **ElastiCache instance name:** Local Instance hosted with Redis as a container on the same instance (soon to be another instance for assessment 3)
+- **What data is being cached?:** Group items (lists of items belonging to a user-owned group), user authentication data, and other frequently queried relational data like group details to reduce database load.
+- **Why is this data likely to be accessed frequently?:** Group items and related data are accessed repeatedly during group management, item addition/removal, and model operations, as users interact with their groups often; caching avoids redundant database queries and improves response times for read-heavy operations.
+- **Video timestamp:**
+- **Relevant files:**
+    - app/utils/utils_redis.py
+    - app/controllers/controllers_items.py
+    - app/controllers/controllers_ml.py
+
+### Core - Statelessness
+
+- **What data is stored within your application that is not stored in cloud data services?:** [eg. intermediate video files that have been transcoded but not stabilised]
+- **Why is this data not considered persistent state?:** [eg. intermediate files can be recreated from source if they are lost]
+- **How does your application ensure data consistency if the app suddenly stops?:** [eg. journal used to record data transactions before they are done.  A separate task scans the journal and corrects problems on startup and once every 5 minutes afterwards. ]
+- **Relevant files:**
+    -
+
+### Graceful handling of persistent connections
+
+- **Type of persistent connection and use:** [eg. server-side-events for progress reporting]
+- **Method for handling lost connections:** [eg. client responds to lost connection by reconnecting and indicating loss of connection to user until connection is re-established ]
+- **Relevant files:**
+    -
 
 
-### Custom processing
+### Core - Authentication with Cognito
 
-- **One line description:** Application implements a custom ML pipeline with domain-specific feature engineering, a managed job queue for multi-user training, and tailored persistence/visualisation of Steam market predictions.
-- **Video timestamp:** 3:55
-- **Relevant files:**  
-  - app/utils/ml_utils.py  
-  - app/controllers/controllers_ml.py
-  - tmp/models/
-  - tmp/scalers/
-  - tmp/features/
+- **User pool name:**
+- **How are authentication tokens handled by the client?:** [eg. Response to login request sets a cookie containing the token.]
+- **Video timestamp:**
+- **Relevant files:**
+    -
+
+### Cognito multi-factor authentication
+
+- **What factors are used for authentication:** [eg. password, SMS code]
+- **Video timestamp:**
+- **Relevant files:**
+    -
+
+### Cognito federated identities
+
+- **Identity providers used:**
+- **Video timestamp:**
+- **Relevant files:**
+    -
+
+### Cognito groups
+
+- **How are groups used to set permissions?:** [eg. 'admin' users can delete and ban other users]
+- **Video timestamp:**
+- **Relevant files:**
+    -
+
+### Core - DNS with Route53
+
+- **Subdomain**:  [eg. myawesomeapp.cab432.com]
+- **Video timestamp:**
+
+### Parameter store
+
+- **Parameter names:** /steam-market-predictor/s3-bucket-name, /steam-market-predictor/steam-api-base and /steam-market-predictor/steam-com-base
+- **Video timestamp:**
+- **Relevant files:**
+    - app/aws_values.py
+
+### Secrets manager
+
+- **Secrets names:** [eg. n1234567-youtube-api-key]
+- **Video timestamp:**
+- **Relevant files:**
+    -
 
 ### Infrastructure as code
 
-- **One line description:** Application deployment is automated using Docker Compose files that define and launch all required services (API server, web frontend, and MariaDB database) from a single command.  
-- **Video timestamp:** 2:22, 4:44
-- **Relevant files:**  
-  - docker-compose.yml  
-  - docker-compose.dev.yml  
-  - Dockerfile  
-  - web/Dockerfile  
-
-### Web client
-
-- **One line description:** A full-featured Streamlit web client provides a browser-accessible interface to all API endpoints, including authentication, group and item management, Steam integration, and ML training/prediction with visual outputs.  
-- **Video timestamp:** 0:10 
-- **Relevant files:**  
-  - web/web_page.py
-
-### Upon request
-
-- **One line description:** Not attempted
+- **Technology used:**
+- **Services deployed:**
 - **Video timestamp:**
 - **Relevant files:**
-    - 
+    -
+
+### Other (with prior approval only)
+
+- **Description:**
+- **Video timestamp:**
+- **Relevant files:**
+    -
+
+### Other (with prior permission only)
+
+- **Description:**
+- **Video timestamp:**
+- **Relevant files:**
+    -

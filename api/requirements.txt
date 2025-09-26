@@ -15,3 +15,8 @@ werkzeug
 flask 
 requests
 pycognito
+
+cryptography
+python-dotenv
+boto3
+pydantic

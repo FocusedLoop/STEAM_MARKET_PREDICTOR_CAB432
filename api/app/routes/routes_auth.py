@@ -11,7 +11,7 @@ from app.controllers.controller_auth import (
 router = APIRouter()
 
 
-@router.post("/auth/register", status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 def create_user(user: UserCreate):
     """
     Endpoint to register a new user in Cognito.
@@ -22,7 +22,7 @@ def create_user(user: UserCreate):
     }
 
 
-@router.post("/auth/confirm", status_code=status.HTTP_200_OK)
+@router.post("/confirm", status_code=status.HTTP_200_OK)
 def confirm_new_user(user: UserConfirm):
     """
     Endpoint to confirm a user's account with a code from their email.
@@ -31,7 +31,7 @@ def confirm_new_user(user: UserConfirm):
     return {"message": "Your account has been successfully verified and you can now log in."}
 
 
-@router.post("/auth/login")
+@router.post("/login")
 def user_login(user: UserLogin):
     """
     Endpoint to log in a user and retrieve JWTs.

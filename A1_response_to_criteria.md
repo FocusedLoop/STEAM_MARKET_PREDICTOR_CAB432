@@ -50,14 +50,16 @@ Overview
 
 ### Third data service
 
-- **AWS service name:**
-- **What data is being stored?:**
-- **Why is this service suited to this data?:**
-- **Why is are the other services used not suitable for this data?:**
-- **Bucket/instance/table name:**
-- **Video timestamp:**
+- **AWS service name:** Local Redis Instance (Containerized)
+- **What data is being stored?:** Frequently accessed, transient data such as user authentication sessions, group item lists, and intermediate results from model operations. This reduces repeated queries to the relational database and improves application responsiveness.
+- **Why is this service suited to this data?:** Redis is an in-memory data store optimized for high-throughput, low-latency access. Running it locally in a container allows for quick setup and testing without external dependencies, while still providing caching for ephemeral data that can be regenerated if lost. It's ideal for development and small-scale production where full ElastiCache isn't needed yet.
+- **Why is are the other services used not suitable for this data?:** RDS is designed for durable, structured relational data, but is slower for repeated reads of the same data. S3 is optimized for large, unstructured object storage, not fast retrieval of small, frequently used values. DynamoDB is a persistent NoSQL store, not an in-memory cache, so it doesn’t offer the same millisecond-level performance or eviction policies for temporary data. ElastiCache is cloud-based and more scalable, but a local container is simpler for initial deployment.
+- **Bucket/instance/table name:** Local Redis container (e.g., via Docker on the EC2 instance soon to be a seperate instance)
+- **Video timestamp:** 
 - **Relevant files:**
-    -
+    - app/utils/utils_redis.py
+    - app/controllers/controllers_items.py
+    - app/controllers/controllers_ml.py
 
 ### S3 Pre-signed URLs
 
@@ -67,10 +69,10 @@ Overview
     - app/utils/utils_s3.py
     - app/controllers/controllers_ml.py
 
-### In-memory cache
+### In-memory cache (WE WHERE APPROVED TO USE REDIS IN A CONTAINER BY UNIT COORDINATOR)
 
 - **ElastiCache instance name:** Local Instance hosted with Redis as a container on the same instance (soon to be another instance for assessment 3)
-- **What data is being cached?:** Group items (lists of items belonging to a user-owned group), user authentication data, and other frequently queried relational data like group details to reduce database load.
+- **What data is being cached?:** Group items (lists of items belonging to a user-owned group), and other frequently queried relational data like group details to reduce database load.
 - **Why is this data likely to be accessed frequently?:** Group items and related data are accessed repeatedly during group management, item addition/removal, and model operations, as users interact with their groups often; caching avoids redundant database queries and improves response times for read-heavy operations.
 - **Video timestamp:**
 - **Relevant files:**

@@ -3,14 +3,14 @@ from dotenv import load_dotenv
 from .aws_values import load_parameters, load_secret_manager
 import uvicorn, os
 
+load_dotenv()
+os.environ.update(load_parameters())
+os.environ.update(load_secret_manager())
+
 from app.routes.routes_items import router as items_router
 from app.routes.routes_users import router as users_router
 from app.routes.routes_steam import router as steam_router
 from app.routes.routes_auth import router as auth_router
-
-load_dotenv()
-os.environ.update(load_parameters())
-os.environ.update(load_secret_manager())
 
 # Initialize APIno
 SITE_PORT = os.environ.get("SITE_PORT")

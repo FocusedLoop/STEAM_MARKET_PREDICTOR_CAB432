@@ -1,8 +1,11 @@
-import requests, json, base64
+import requests, json, base64, time
 import streamlit as st
+import os
 
 API_URL = "http://server:3010"
-
+COGNITO_DOMAIN="https://ap-southeast-2pqj6jtcus.auth.ap-southeast-2.amazoncognito.com/"
+COGNITO_CLIENT_ID = "s37q4bfradfp2ic1j1rfr1b4j"
+REDIRECT_URI = "https%3A%2F%2Fd84l1y8p4kdic.cloudfront.net&response_type=code&scope=aws.cognito.signin.user.admin+email+openid+phone+profile"#"steamapp://auth/callback"
 
 def confirm_account():
     st.header("Confirm Your Account")
@@ -23,25 +26,130 @@ def confirm_account():
                 st.error(f"Confirmation failed: {r.status_code}\n{r.text}")
 
 def login():
-    st.header("Login to account")
-    email = st.text_input("Email") # CHANGED: Login with email
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        # CHANGED: Endpoint and payload
-        r = requests.post(
-            f"{API_URL}/auth/login", json={"email": email, "password": password}
-        )
-        if r.status_code == 200:
-            st.success("Login successful!")
-            # CHANGED: Store the id_token for authenticating future requests
-            st.session_state["token"] = r.json().get("id_token")
-            st.rerun()
-        else:
-            try:
-                st.error(f"Login failed: {r.status_code}\n{r.json()['detail']}")
-            except Exception:
-                st.error(f"Login failed: {r.status_code}\n{r.text}")
+    st.header("Sign In")
 
+    auth_url = (
+        f"{COGNITO_DOMAIN}login?"
+        f"client_id={COGNITO_CLIENT_ID}&"
+        f"response_type=code&"
+        f"scope=aws.cognito.signin.user.admin+email+openid+phone+profile&"
+        f"redirect_uri={REDIRECT_URI}"
+    )
+    st.markdown(
+        f'<a href="{auth_url}" target="_self" style="display: inline-block; padding: 10px 20px; background-color: #4285F4; color: white; text-align: center; text-decoration: none; border-radius: 4px; font-weight: bold;">Sign in with Google</a>',
+        unsafe_allow_html=True,
+    )
+
+    st.divider()
+
+    if 'mfa_session_details' in st.session_state:
+        st.subheader("Enter Verification Code")
+        st.info("A code has been sent to your email address.")
+        
+        mfa_code = st.text_input("Email Code")
+        
+        if st.button("Submit Code"):
+            details = st.session_state['mfa_session_details']
+            
+            request_payload = {
+                "username": details["username"],
+                "session": details["session"],
+                "mfa_code": mfa_code
+            }
+            
+            # Create placeholder elements that mimic the timing of the debug expanders
+            status_placeholder = st.empty()
+            result_placeholder = st.empty()
+            
+            r = requests.post(
+                f"{API_URL}/auth/mfa-challenge", 
+                json=request_payload
+            )
+            status_placeholder.write("Processing MFA verification...")
+            
+            if r.status_code == 200:
+                try:
+                    response_json = r.json()
+                    token_fields = ["id_token", "IdToken", "access_token", "AccessToken"]
+                    found_token = None
+                    
+                    for field in token_fields:
+                        if field in response_json:
+                            found_token = response_json[field]
+                            break
+                    
+                    if found_token:
+                        # Clear the status placeholder
+                        status_placeholder.empty()
+                        result_placeholder.success("Login successful!")
+                        
+                        # Update session state in the correct order
+                        st.session_state["token"] = found_token
+                        del st.session_state['mfa_session_details']
+                        time.sleep(0.1)
+                        
+                        st.rerun()
+                    else:
+                        status_placeholder.empty()
+                        result_placeholder.error(f"Authentication failed. Please try again.")
+                        
+                except Exception as e:
+                    status_placeholder.empty()
+                    result_placeholder.error(f"Error processing response: {str(e)}")
+            else:
+                try:
+                    response_json = r.json()
+                    error_detail = response_json.get('detail', 'Invalid MFA code.')
+                except:
+                    error_detail = "Authentication failed."
+                
+                status_placeholder.empty()
+                result_placeholder.error(f"Login failed: {error_detail}")
+    
+    else:
+        st.subheader("Or sign in with your username")
+        
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+
+        if st.button("Sign In"):
+            # Create placeholder for status updates
+            status_placeholder = st.empty()
+            status_placeholder.write("Authenticating...")
+            
+            r = requests.post(
+                f"{API_URL}/auth/login", 
+                json={"username": username, "password": password}
+            )
+            
+            if r.status_code == 200:
+                try:
+                    response_data = r.json()
+                    
+                    if "id_token" in response_data:
+                        status_placeholder.success("Login successful!")
+                        st.session_state["token"] = response_data.get("id_token")
+                        time.sleep(0.1)
+                        st.rerun()
+                    elif response_data.get("challengeName") == "MFA_CHALLENGE":
+                        status_placeholder.info("MFA verification required.")
+                        st.session_state['mfa_session_details'] = {
+                            "session": response_data["session"],
+                            "username": response_data["username"]
+                        }
+                        time.sleep(0.1)
+                        st.rerun()
+                    else:
+                        status_placeholder.error("Unexpected response format.")
+                        
+                except Exception as e:
+                    status_placeholder.error(f"Error processing login response: {str(e)}")
+            else:
+                try:
+                    response_data = r.json()
+                    status_placeholder.error(f"Login failed: {response_data.get('detail', 'An error occurred.')}")
+                except:
+                    status_placeholder.error(f"Login failed: {r.text}")
 
 def logout():
     st.header("Logout of account")
@@ -55,12 +163,18 @@ def register():
     st.header("Register for an account")
     username = st.text_input("New Username", key="register_username")
     email = st.text_input("Email Address", key="register_email")
+    steam_id = st.text_input("Steam ID", key="register_steam_id")
     password = st.text_input("New Password", type="password", key="register_password")
 
     if st.button("Register"):
         r = requests.post(
             f"{API_URL}/auth/register",
-            json={"username": username, "email": email, "password": password},
+            json={
+                "username": username, 
+                "email": email, 
+                "password": password, 
+                "steam_id": steam_id
+            },
         )
         if r.status_code == 201:
             st.success("Registration successful!")
@@ -109,15 +223,13 @@ def get_group_by_id():
                 st.error(f"Failed to fetch groups: {r.status_code}\n{r.text}")
 
 
+### Groups (authenticated)
+# Create a new group, gets tied to that user
 def create_group(token: str):
     st.header("Create Group")
     title = st.text_input("Group Title")
     if st.button("Create Group"):
-        r = requests.post(
-            f"{API_URL}/group",
-            json={"title": title},
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        r = requests.post(f"{API_URL}/group", json={"title": title}, headers={"Authorization": f"Bearer {token}"})
         if r.status_code == 200:
             st.success(f"Group created! ID: {r.json().get('id')}")
         else:
@@ -419,11 +531,30 @@ def predict_item(token: str):
         if r.status_code == 200:
             st.success("Prediction complete!")
             if r.headers.get("content-type", "").startswith("image/"):
-                st.image(r.content)
+                st.image(r.content, caption="Prediction Graph")
             else:
                 result = r.json()
-                for k, v in result.items():
-                    st.write(f"**{k}:** {v}")
+                
+                # Display the prediction graph if it exists
+                graph_b64 = result.get("graph")
+                if graph_b64:
+                    try:
+                        img_bytes = base64.b64decode(graph_b64)
+                        st.image(img_bytes, caption="Prediction Graph")
+                    except Exception as e:
+                        st.error(f"Error decoding prediction graph: {e}")
+                
+                # Display the graph URL if available
+                graph_url = result.get("graph_url")
+                if graph_url:
+                    st.markdown(f'[View Prediction Graph]({graph_url})')
+                
+                # Display any other result data
+                other_data = {k: v for k, v in result.items() if k not in ['graph', 'graph_url']}
+                if other_data:
+                    st.subheader("Additional Data:")
+                    for k, v in other_data.items():
+                        st.write(f"**{k}:** {v}")
         else:
             try:
                 st.error(f"Failed to fetch prediction: {r.status_code}\n{r.json()}")
@@ -448,7 +579,7 @@ actions_list = {
         "Logout",
     ],
     "public_actions": ["Get All Groups", "Get Group by ID"],
-    "auth_actions": ["Login", "Register", "Confirm Account"],
+    "auth_actions": ["Sign In", "Register", "Confirm Account"],
 }
 
 def main():
@@ -456,16 +587,34 @@ def main():
     if "token" not in st.session_state:
         st.session_state["token"] = None
 
-    token = st.session_state.get("token")
+    auth_code = st.query_params.get("code")
+    if auth_code and not st.session_state.get("token"):
+        try:
+            r = requests.post(
+                f"{API_URL}/auth/token",
+                json={"code": auth_code, "redirect_uri": REDIRECT_URI},
+            )
+            r.raise_for_status() 
+            tokens = r.json()
+            st.session_state["token"] = tokens.get("id_token")
+            st.query_params.clear()
+            st.rerun()
+        except requests.exceptions.RequestException as e:
+            st.error(f"Google login failed. Could not exchange code for token. Error: {e}")
+            st.query_params.clear()
 
+    # Update action list based on authentication state
+    token = st.session_state.get("token")
+    if "next_action" in st.session_state:
+        st.session_state["actions"] = st.session_state["next_action"]
+        del st.session_state["next_action"]
     if not token:
         action_list = actions_list["auth_actions"] + actions_list["public_actions"]
     else:
         action_list = actions_list["public_actions"] + actions_list["private_actions"]
-
     actions = st.sidebar.radio("### Actions", action_list, key="actions")
 
-    if actions == "Login":
+    if actions == "Sign In":
         login() 
     elif actions == "Register":
         register()

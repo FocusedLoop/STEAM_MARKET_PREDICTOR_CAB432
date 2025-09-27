@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
-from app.auth.jwt import authenticate_token
+from app.auth.cognito_jwt import get_current_user
 from app.utils import validate_price_history
 from app.utils.utils_redis import redis_cache
 from app.models import (
@@ -17,7 +17,7 @@ from app.models import (
 router = APIRouter()
 
 # Create a new group
-async def create_group(request: Request, user=Depends(authenticate_token)):
+async def create_group(request: Request, user=Depends(get_current_user)):
     data = await request.json()
     title = data.get("title")
     if not title:
@@ -34,7 +34,7 @@ async def create_group(request: Request, user=Depends(authenticate_token)):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Change a group name
-async def update_group_name(group_id: int, request: Request, user=Depends(authenticate_token)):
+async def update_group_name(group_id: int, request: Request, user=Depends(get_current_user)):
     data = await request.json()
     title = data.get("title")
     if not title:
@@ -46,12 +46,13 @@ async def update_group_name(group_id: int, request: Request, user=Depends(authen
         # Invalidate cache for this group and all groups
         await redis_cache.delete(f"group:{group_id}")
         await redis_cache.delete("groups:all")
+        print("Cache invalidated for group and all groups")
         return {"message": f"Group name updated to {title}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # Add item to an existing group
-async def add_item_to_group(group_id: int, request: Request, user=Depends(authenticate_token)):
+async def add_item_to_group(group_id: int, request: Request, user=Depends(get_current_user)):
     data = await request.json()
     item_name = data.get("item_name")
     item_json = data.get("item_json")
@@ -67,6 +68,7 @@ async def add_item_to_group(group_id: int, request: Request, user=Depends(authen
             raise HTTPException(status_code=404, detail="Group not found, not owned by user, or item could not be added")
         # Invalidate cache for this group's items
         await redis_cache.delete(f"group:{group_id}:items:{user['user_id']}")
+        print("Cache deleted for group items")
         return {
             "message": f"Item {item_name} added to group",
             "id": result.get("id")
@@ -75,7 +77,7 @@ async def add_item_to_group(group_id: int, request: Request, user=Depends(authen
         raise HTTPException(status_code=500, detail=str(e))
 
 # Remove item from an existing group
-async def remove_item_from_group(group_id: int, request: Request, user=Depends(authenticate_token)):
+async def remove_item_from_group(group_id: int, request: Request, user=Depends(get_current_user)):
     data = await request.json()
     item_name = data.get("item_name")
     if not item_name or not group_id:
@@ -86,12 +88,13 @@ async def remove_item_from_group(group_id: int, request: Request, user=Depends(a
             raise HTTPException(status_code=404, detail="Group or Item not found, or not owned by user")
         # Invalidate cache for this group's items
         await redis_cache.delete(f"group:{group_id}:items:{user['user_id']}")
+        print("Cache deleted for group items")
         return {"message": f"Item {item_name} removed from group"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # Delete an existing group
-async def delete_group(group_id: int, user=Depends(authenticate_token)):
+async def delete_group(group_id: int, user=Depends(get_current_user)):
     try:
         result = model_remove_group(user["user_id"], group_id)
         if not result.get("deleted"):
@@ -100,6 +103,7 @@ async def delete_group(group_id: int, user=Depends(authenticate_token)):
         await redis_cache.delete(f"group:{group_id}")
         await redis_cache.delete(f"group:{group_id}:items:{user['user_id']}")
         await redis_cache.delete("groups:all")
+        print("Cache invalidated for group, group items, and all groups")
         return {"message": "Group deleted"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -116,6 +120,7 @@ async def get_all_groups():
         # Cache miss: Query DB and cache
         groups = model_get_all_groups()
         await redis_cache.set("groups:all", groups, ttl=300)
+        print("Cache set for all groups")
         return JSONResponse(content=groups)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -134,12 +139,13 @@ async def get_group_by_id(group_id: int):
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
         await redis_cache.set(f"group:{group_id}", group, ttl=300)
+        print("Cache set for group by ID")
         return JSONResponse(content=group)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # Get all items in a group
-async def get_group_items(group_id: int, user=Depends(authenticate_token)):
+async def get_group_items(group_id: int, user=Depends(get_current_user)):
     try:
         # Check group ownership first
         group = model_get_group_by_id(group_id)
@@ -158,6 +164,7 @@ async def get_group_items(group_id: int, user=Depends(authenticate_token)):
         # Cache miss: Query DB and cache
         items = model_get_group_items(user["user_id"], group_id)
         await redis_cache.set(cache_key, items, ttl=300)
+        print("Cache set for group items")
         return JSONResponse(content=items)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

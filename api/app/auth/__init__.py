@@ -1,3 +1,3 @@
-from .jwt import generate_access_token, authenticate_token
+from .cognito_jwt import get_current_user
 
-__all__ = ["generate_access_token", "authenticate_token"]
+__all__ = ["get_current_user"]

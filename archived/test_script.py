@@ -1,9 +1,10 @@
 import requests, json, sys, time, threading
 
-BASE_URL = "http://ec2-16-176-232-183.ap-southeast-2.compute.amazonaws.com:3010"
+BASE_URL = "http://steam-market-price-predictor.cab432.com:3010"
 #BASE_URL = "http://localhost:3010"
-USERNAME = "testuser"
-PASSWORD = "testpass"
+USERNAME = "testusers"
+PASSWORD = "TestPass1!"
+EMAIL = "maxinnes09@gmail.com"
 STEAM_ID = "76561198281140980"
 
 def print_response(r, allow_error=False):
@@ -20,28 +21,124 @@ def print_response(r, allow_error=False):
         print("Error encountered, exiting test script.")
         sys.exit(1)
 
-def get_auth_token():
-    # Sign up (ignore if already exists)
-    r = requests.post(f"{BASE_URL}/users/register", json={
+def register_user():
+    """Register user with hardcoded values"""
+    print("Registering user with hardcoded credentials...")
+    r = requests.post(f"{BASE_URL}/auth/register", json={
         "username": USERNAME,
-        "email": STEAM_ID,
+        "email": EMAIL,
         "password": PASSWORD,
         "steam_id": STEAM_ID
     })
-    if r.status_code not in (200, 400):
-        print("Sign-up failed:")
+    
+    if r.status_code == 201:
+        print("Registration successful! Check your email for confirmation code.")
+        return True
+    elif r.status_code == 400:
+        response_data = r.json()
+        if "already exists" in response_data.get("detail", "").lower():
+            print("User already exists, proceeding...")
+            return True
+        else:
+            print("Registration failed:")
+            print_response(r)
+            return False
+    else:
+        print("Registration failed:")
         print_response(r)
-        return None
-    # Login
-    r = requests.post(f"{BASE_URL}/users/login", json={
+        return False
+
+def get_auth_token():
+    """Get authentication token with proper MFA support"""
+    print("=== Steam Market Predictor Test Script ===")
+    print(f"Using BASE_URL: {BASE_URL}")
+    print(f"Username: {USERNAME}")
+    print(f"Email: {EMAIL}")
+    print(f"Steam ID: {STEAM_ID}")
+    print("=" * 50)
+    
+    # First try to register (will succeed or indicate user exists)
+    # if not register_user():
+    #     return None
+    
+    print(f"\nAttempting login with username: {USERNAME}")
+    r = requests.post(f"{BASE_URL}/auth/login", json={
         "username": USERNAME,
         "password": PASSWORD
     })
-    print("Login response:")
-    print_response(r)
+    
+    print("Initial login response:")
+    print(f"Status: {r.status_code}")
+    try:
+        response_data = r.json()
+        print(json.dumps(response_data, indent=2))
+    except Exception:
+        print(r.text)
+    print("-" * 40)
+    
     if r.status_code == 200:
-        return r.json().get("authToken")
-    return None
+        response_data = r.json()
+        
+        # Check if we got tokens directly (no MFA)
+        if "id_token" in response_data:
+            print("✅ Login successful - no MFA required")
+            return response_data.get("id_token")
+        
+        # Check if MFA challenge is required
+        elif response_data.get("challengeName") == "MFA_CHALLENGE":
+            print("📧 MFA challenge required - check your email for verification code")
+            session = response_data.get("session")
+            username_from_response = response_data.get("username", USERNAME)
+            
+            # Get MFA code from user
+            print("\nA verification code has been sent to your email address.")
+            mfa_code = input("Enter the MFA verification code: ").strip()
+            
+            if not mfa_code:
+                print("❌ No MFA code provided")
+                return None
+            
+            print(f"Submitting MFA code: {mfa_code}")
+            
+            # Submit MFA challenge
+            mfa_response = requests.post(f"{BASE_URL}/auth/mfa-challenge", json={
+                "username": username_from_response,
+                "mfa_code": mfa_code,
+                "session": session
+            })
+            
+            print("MFA challenge response:")
+            print(f"Status: {mfa_response.status_code}")
+            try:
+                mfa_data = mfa_response.json()
+                print(json.dumps(mfa_data, indent=2))
+            except Exception:
+                print(mfa_response.text)
+            print("-" * 40)
+            
+            if mfa_response.status_code == 200:
+                mfa_data = mfa_response.json()
+                
+                # Try different token field names (match your backend)
+                token_fields = ["id_token", "IdToken", "access_token", "AccessToken"]
+                for field in token_fields:
+                    if field in mfa_data:
+                        print(f"✅ MFA successful - got token from field: {field}")
+                        return mfa_data[field]
+                
+                print("❌ MFA response missing token fields")
+                print("Available fields:", list(mfa_data.keys()))
+                return None
+            else:
+                print("❌ MFA challenge failed")
+                return None
+        else:
+            print("❌ Unexpected login response format")
+            print("Response keys:", list(response_data.keys()))
+            return None
+    else:
+        print("❌ Initial login failed")
+        return None
 
 def auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
@@ -361,10 +458,15 @@ def test_server_load(token):
 if __name__ == "__main__":
     token = get_auth_token()
     if not token:
-        print("Could not get auth token, aborting tests.")
+        print("❌ Could not get auth token, aborting tests.")
+        sys.exit(1)
     elif "--server-load" in sys.argv or "-l" in sys.argv:
         test_server_load(token)
     else:
-        item_id = test_groups(token)
+        print(f"\n✅ Authentication successful!")
+        print(f"Token preview: {token[:50]}...")
+        print("=" * 50)
+        
+        test_groups(token)
         test_steam(token)
         test_group_models(token)

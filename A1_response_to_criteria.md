@@ -25,16 +25,16 @@ Overview
 
 ### Core - First data persistence service
 
-- **AWS service name:**  AWS RDS
-- **What data is being stored?:** The entire database is a DynamoDB instance including user, items, groups, models for hash values indexing them to files in the s3 bucket
+- **AWS service name:** AWS RDS
+- **What data is being stored?:** The entire database is a PostgreSQL instance including user, items, groups, models for hash values indexing them to files in the S3 bucket
 - **Why is this service suited to this data?:** RDS provides a managed relational database with ACID transactions, complex queries (e.g., joining users, groups, and items), and data integrity for structured, interdependent data like user-owned groups and item price histories. It supports SQL for efficient retrieval and updates, which is essential for the app's group/item management and authentication features.
-- **Why is are the other services used not suitable for this data?:** S3 is designed for unstructured object storage (files/blobs), not relational queries or transactions. DynamoDB (NoSQL) could handle key-value lookups but lacks the relational schema and SQL support needed for complex relationships (e.g., user-group-item hierarchies) and joins.
-- **Bucket/instance/table name:** Used User and Schema s439 for tables "model_index", "group_items", "groups", "users"
+- **Why are the other services used not suitable for this data?:** S3 is designed for unstructured object storage (files/blobs), not relational queries or transactions. DynamoDB (NoSQL) could handle key-value lookups but lacks the relational schema and SQL support needed for complex relationships (e.g., user-group-item hierarchies) and joins.
+- **Bucket/instance/table name:** RDS PostgreSQL instance with schema s439 containing tables: "model_index", "group_items", "groups", "users"
 - **Video timestamp:**
 - **Relevant files:**
     - app/db/db.py
     - app/models/*
-
+    
 ### Core - Second data persistence service
 
 - **AWS service name:** S3 Object Storage

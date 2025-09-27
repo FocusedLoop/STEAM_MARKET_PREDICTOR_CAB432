@@ -1,6 +1,6 @@
 from fastapi import HTTPException, Depends, Request
 from fastapi.responses import Response
-from app.auth.jwt import authenticate_token
+from app.auth.cognito_jwt import get_current_user
 from app.utils.ml_utils import validate_price_history, PriceModel
 from app.models import model_save_ml_index, model_get_ml_index, model_get_group_items, model_get_group_by_id, model_delete_ml_index
 from app.utils.utils_redis import redis_cache
@@ -9,7 +9,7 @@ from datetime import datetime
 import base64, os
 
 # Handle training groups of models, go through each item in the group and train them
-async def group_train_model(request: Request, user=Depends(authenticate_token)):
+async def group_train_model(request: Request, user=Depends(get_current_user)):
     try:
         print("BEGINING GROUP TRAINING===============================")
         data = await request.json()
@@ -62,6 +62,7 @@ async def group_train_model(request: Request, user=Depends(authenticate_token)):
         # Invalidate cache for this group's models
         # If only one item, return the singular graph and URL
         await redis_cache.delete(f"group:{group_id}:models:{user['user_id']}")
+        print("Cache deleted for group models")
         if len(results) == 1:
             return {
                 "graph": results[0]["graph"],  # Base64 PNG
@@ -76,7 +77,7 @@ async def group_train_model(request: Request, user=Depends(authenticate_token)):
         raise HTTPException(status_code=500, detail=f"Failed to train models for group: {str(e)}")
 
 # Get a group that have generated models (Read: Cache result)
-async def get_group_with_models(group_id: int, user=Depends(authenticate_token)):
+async def get_group_with_models(group_id: int, user=Depends(get_current_user)):
     try:
         # Check cache first
         cache_key = f"group:{group_id}:models:{user['user_id']}"
@@ -133,6 +134,7 @@ async def get_group_with_models(group_id: int, user=Depends(authenticate_token))
             "items": items_with_models
         }
         await redis_cache.set(cache_key, result, ttl=300)
+        print("Cache set for group model items")
         return result
     except HTTPException:
         raise
@@ -140,7 +142,7 @@ async def get_group_with_models(group_id: int, user=Depends(authenticate_token))
         raise HTTPException(status_code=500, detail=f"Failed to fetch group with models: {str(e)}")
 
 # Delete group that have generated models
-async def delete_group_model(group_id: int, user=Depends(authenticate_token)):
+async def delete_group_model(group_id: int, user=Depends(get_current_user)):
     try:
         # Get all model_index entries for this group/user before deleting
         items = model_get_group_items(user["user_id"], group_id)
@@ -173,6 +175,7 @@ async def delete_group_model(group_id: int, user=Depends(authenticate_token)):
             
             # Invalidate cache for this group's models
             await redis_cache.delete(f"group:{group_id}:models:{user['user_id']}")
+            print("Cache deleted for group models")
             return {"success": True, "message": "Models deleted for group", "group_id": group_id}
         else:
             raise HTTPException(status_code=404, detail="No models found for this group or user")
@@ -183,7 +186,7 @@ async def delete_group_model(group_id: int, user=Depends(authenticate_token)):
         raise HTTPException(status_code=500, detail=f"Failed to delete models for group: {str(e)}")
 
 # NOTE: Graphs have no way to be deleted currently
-async def predict_item_prices(group_id: int, request: Request, user=Depends(authenticate_token)):
+async def predict_item_prices(group_id: int, request: Request, user=Depends(get_current_user)):
     try:
         data = await request.json()
         item_id = data.get("item_id")

@@ -1,6 +1,6 @@
 from app.db import get_connection
 
-def model_get_or_create_user_profile(cognito_id: str, username: str):
+def model_get_or_create_user_profile(cognito_id: str, username: str, steam_id: str = None):
     """
     Get or create a user profile by cognito_id.
     Returns the user dict if exists, or creates and returns new user.
@@ -17,12 +17,12 @@ def model_get_or_create_user_profile(cognito_id: str, username: str):
             return dict(zip(columns, row))
         else:
             cursor.execute(
-                "INSERT INTO users (cognito_id, username) VALUES (%s, %s)",
-                (cognito_id, username),
+                "INSERT INTO users (cognito_id, username, steam_id) VALUES (%s, %s, %s)",
+                (cognito_id, username, steam_id),
             )
             conn.commit()
             user_id = cursor.lastrowid
-            return {"user_id": user_id, "cognito_id": cognito_id, "username": username}
+            return {"user_id": user_id, "cognito_id": cognito_id, "username": username, "steam_id": steam_id}
     except Exception as e:
         conn.rollback()
         raise Exception(f"Database error in get_or_create: {e}")

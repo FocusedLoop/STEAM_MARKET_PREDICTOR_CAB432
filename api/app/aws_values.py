@@ -3,7 +3,6 @@ from botocore.exceptions import ClientError
 
 # Load parameters at startup from SSM Parameter Store
 AWS_REGION = os.environ.get('AWS_REGION')
-AWS_SECRET_MANGER = os.environ.get('AWS_SECRET_MANGER')
 def load_parameters():
     ssm = boto3.client('ssm', region_name=AWS_REGION)
     parameter_names = {
@@ -25,6 +24,7 @@ def load_parameters():
     return parameters
 
 def load_secret_manager():
+    AWS_SECRET_MANGER = os.environ.get('AWS_SECRET_MANGER')
     client = boto3.client('secretsmanager', region_name=AWS_REGION)
     try:
         get_secret_value_response = client.get_secret_value(SecretId=AWS_SECRET_MANGER)

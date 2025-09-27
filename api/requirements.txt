@@ -12,7 +12,6 @@ redis
 boto3
 joblib
 
-# AWS Cognito
 authlib 
 werkzeug 
 flask 
@@ -23,3 +22,5 @@ cryptography
 python-dotenv
 boto3
 pydantic
+
+email-validator

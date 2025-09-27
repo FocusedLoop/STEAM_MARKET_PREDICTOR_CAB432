@@ -20,3 +20,5 @@ cryptography
 python-dotenv
 boto3
 pydantic
+
+email-validator

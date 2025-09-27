@@ -1,7 +1,13 @@
 import requests, json, base64
 import streamlit as st
+import os
 
 API_URL = "http://server:3010"
+
+
+COGNITO_DOMAIN="https://ap-southeast-2inihjs9fw.auth.ap-southeast-2.amazoncognito.com"
+COGNITO_CLIENT_ID = "3j8o6dnhvin7sstr6odsv3o8j8"
+REDIRECT_URI = "http://localhost:8501"
 
 
 def confirm_account():
@@ -23,25 +29,73 @@ def confirm_account():
                 st.error(f"Confirmation failed: {r.status_code}\n{r.text}")
 
 def login():
-    st.header("Login to account")
-    email = st.text_input("Email") # CHANGED: Login with email
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        # CHANGED: Endpoint and payload
-        r = requests.post(
-            f"{API_URL}/auth/login", json={"email": email, "password": password}
-        )
-        if r.status_code == 200:
-            st.success("Login successful!")
-            # CHANGED: Store the id_token for authenticating future requests
-            st.session_state["token"] = r.json().get("id_token")
-            st.rerun()
-        else:
-            try:
-                st.error(f"Login failed: {r.status_code}\n{r.json()['detail']}")
-            except Exception:
-                st.error(f"Login failed: {r.status_code}\n{r.text}")
+    st.header("Sign In")
 
+    auth_url = (
+        f"https://{COGNITO_DOMAIN}/oauth2/authorize?"
+        f"response_type=code&"
+        f"client_id={COGNITO_CLIENT_ID}&"
+        f"redirect_uri={REDIRECT_URI}&"
+        f"identity_provider=Google"
+    )
+    st.markdown(
+        f'<a href="{auth_url}" target="_self" style="display: inline-block; padding: 10px 20px; background-color: #4285F4; color: white; text-align: center; text-decoration: none; border-radius: 4px; font-weight: bold;">Sign in with Google</a>',
+        unsafe_allow_html=True,
+    )
+
+    st.divider()
+
+    if 'mfa_session_details' in st.session_state:
+        st.subheader("Enter Verification Code")
+        st.info("A code has been sent to your email address.")
+        
+        mfa_code = st.text_input("Email Code")
+        
+        if st.button("Submit Code"):
+            details = st.session_state['mfa_session_details']
+            r = requests.post(
+                f"{API_URL}/auth/mfa-challenge", 
+                json={
+                    "username": details["username"],
+                    "session": details["session"],
+                    "mfa_code": mfa_code
+                }
+            )
+            if r.status_code == 200:
+                st.success("Login successful!")
+                st.session_state["token"] = r.json().get("id_token")
+                del st.session_state['mfa_session_details']
+                st.rerun()
+            else:
+                st.error(f"Login failed: {r.json().get('detail', 'Invalid MFA code.')}")
+    
+    else:
+        st.subheader("Or sign in with your username")
+        
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+
+        if st.button("Sign In"):
+            r = requests.post(
+                f"{API_URL}/auth/login", 
+                json={"username": username, "password": password}
+            )
+            response_data = r.json()
+            
+            if r.status_code == 200:
+                if "id_token" in response_data:
+                    st.success("Login successful!")
+                    st.session_state["token"] = response_data.get("id_token")
+                    st.rerun()
+                # MODIFIED: Changed to match the generic MFA challenge name from the backend
+                elif response_data.get("challengeName") == "MFA_CHALLENGE":
+                    st.session_state['mfa_session_details'] = {
+                        "session": response_data["session"],
+                        "username": response_data["username"]
+                    }
+                    st.rerun()
+            else:
+                st.error(f"Login failed: {response_data.get('detail', 'An error occurred.')}")
 
 def logout():
     st.header("Logout of account")
@@ -55,12 +109,18 @@ def register():
     st.header("Register for an account")
     username = st.text_input("New Username", key="register_username")
     email = st.text_input("Email Address", key="register_email")
+    steam_id = st.text_input("Steam ID", key="register_steam_id")
     password = st.text_input("New Password", type="password", key="register_password")
 
     if st.button("Register"):
         r = requests.post(
             f"{API_URL}/auth/register",
-            json={"username": username, "email": email, "password": password},
+            json={
+                "username": username, 
+                "email": email, 
+                "password": password, 
+                "steam_id": steam_id # MODIFIED: Changed 'steam_id2' to 'steam_id'
+            },
         )
         if r.status_code == 201:
             st.success("Registration successful!")
@@ -448,13 +508,29 @@ actions_list = {
         "Logout",
     ],
     "public_actions": ["Get All Groups", "Get Group by ID"],
-    "auth_actions": ["Login", "Register", "Confirm Account"],
+    "auth_actions": ["Sign In", "Register", "Confirm Account"],
 }
 
 def main():
     st.title("Steam Market Predictor")
     if "token" not in st.session_state:
         st.session_state["token"] = None
+
+    auth_code = st.query_params.get("code")
+    if auth_code and not st.session_state.get("token"):
+        try:
+            r = requests.post(
+                f"{API_URL}/auth/token",
+                json={"code": auth_code, "redirect_uri": REDIRECT_URI},
+            )
+            r.raise_for_status() 
+            tokens = r.json()
+            st.session_state["token"] = tokens.get("id_token")
+            st.query_params.clear()
+            st.rerun()
+        except requests.exceptions.RequestException as e:
+            st.error(f"Google login failed. Could not exchange code for token. Error: {e}")
+            st.query_params.clear()
 
     token = st.session_state.get("token")
 
@@ -465,7 +541,8 @@ def main():
 
     actions = st.sidebar.radio("### Actions", action_list, key="actions")
 
-    if actions == "Login":
+
+    if actions == "Sign In":
         login() 
     elif actions == "Register":
         register()

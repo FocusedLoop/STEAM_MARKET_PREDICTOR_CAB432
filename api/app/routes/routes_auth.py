@@ -3,10 +3,15 @@ from app.controllers.controller_auth import (
     UserCreate,
     UserLogin,
     UserConfirm,
+    TokenRequest,
+    MfaChallenge,
     register_user,
     login_user,
     confirm_user,
+    exchange_code_for_tokens,
+    respond_to_mfa_challenge
 )
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -34,11 +39,30 @@ def confirm_new_user(user: UserConfirm):
 @router.post("/login")
 def user_login(user: UserLogin):
     """
-    Endpoint to log in a user and retrieve JWTs.
+    Endpoint to log in a user.
+    Returns either JWTs on success, or an MFA challenge if required.
     """
-    tokens = login_user(user)
-    return {
-        "id_token": tokens["IdToken"],
-        "access_token": tokens["AccessToken"],
-        "refresh_token": tokens["RefreshToken"],
-    }
+    tokens_or_challenge = login_user(user)
+
+    if "IdToken" in tokens_or_challenge:
+        return {
+            "id_token": tokens_or_challenge["IdToken"],
+            "access_token": tokens_or_challenge["AccessToken"],
+            "refresh_token": tokens_or_challenge["RefreshToken"],
+        }
+    else:
+        return tokens_or_challenge
+
+@router.post("/mfa-challenge")
+def submit_mfa_challenge(challenge: MfaChallenge):
+    """
+    Endpoint for the second step of MFA login.
+    """
+    return respond_to_mfa_challenge(challenge)
+
+@router.post("/token")
+def get_token(request: TokenRequest):
+    """
+    Endpoint to exchange an authorization code for tokens.
+    """
+    return exchange_code_for_tokens(request.code, request.redirect_uri)

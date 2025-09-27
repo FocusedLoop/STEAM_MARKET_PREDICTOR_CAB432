@@ -22,8 +22,9 @@ def print_response(r, allow_error=False):
 
 def get_auth_token():
     # Sign up (ignore if already exists)
-    r = requests.post(f"{BASE_URL}/users/sign-up", json={
+    r = requests.post(f"{BASE_URL}/users/register", json={
         "username": USERNAME,
+        "email": STEAM_ID,
         "password": PASSWORD,
         "steam_id": STEAM_ID
     })

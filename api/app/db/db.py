@@ -68,10 +68,10 @@ def create_user_table(conn: psycopg2.extensions.connection):
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            user_id SERIAL PRIMARY KEY,
-            username VARCHAR(255) UNIQUE NOT NULL,
-            steam_id BIGINT,
-            password VARCHAR(255) NOT NULL
+            user_id INT PRIMARY KEY AUTO_INCREMENT,
+            cognito_id VARCHAR(255) UNIQUE NOT NULL,
+            username VARCHAR(255) NOT NULL,
+            steam_id BIGINT
         );
     """)
     conn.commit()
@@ -101,6 +101,7 @@ def create_group_items_table(conn: psycopg2.extensions.connection):
         );
     """)
     conn.commit()
+
 
 # Create model index table
 def create_model_index_table(conn: psycopg2.extensions.connection):
@@ -142,4 +143,6 @@ def init_db():
     finally:
         conn.close()
 
+
 init_db()
+

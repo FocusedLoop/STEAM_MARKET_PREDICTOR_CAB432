@@ -33,6 +33,7 @@ Overview
 - **Video timestamp:**
 - **Relevant files:**
     - app/db/db.py
+    - app/models/*
 
 ### Core - Second data persistence service
 
@@ -50,16 +51,14 @@ Overview
 
 ### Third data service
 
-- **AWS service name:** Local Redis Instance (Containerized)
-- **What data is being stored?:** Frequently accessed, transient data such as user authentication sessions, group item lists, and intermediate results from model operations. This reduces repeated queries to the relational database and improves application responsiveness.
-- **Why is this service suited to this data?:** Redis is an in-memory data store optimized for high-throughput, low-latency access. Running it locally in a container allows for quick setup and testing without external dependencies, while still providing caching for ephemeral data that can be regenerated if lost. It's ideal for development and small-scale production where full ElastiCache isn't needed yet.
-- **Why is are the other services used not suitable for this data?:** RDS is designed for durable, structured relational data, but is slower for repeated reads of the same data. S3 is optimized for large, unstructured object storage, not fast retrieval of small, frequently used values. DynamoDB is a persistent NoSQL store, not an in-memory cache, so it doesn’t offer the same millisecond-level performance or eviction policies for temporary data. ElastiCache is cloud-based and more scalable, but a local container is simpler for initial deployment.
-- **Bucket/instance/table name:** Local Redis container (e.g., via Docker on the EC2 instance soon to be a seperate instance)
-- **Video timestamp:** 
+- **AWS service name:**  [eg. RDS]
+- **What data is being stored?:** [eg video metadata]
+- **Why is this service suited to this data?:** [eg. ]
+- **Why is are the other services used not suitable for this data?:** [eg. Advanced video search requires complex querries which are not available on S3 and inefficient on DynamoDB]
+- **Bucket/instance/table name:**
+- **Video timestamp:**
 - **Relevant files:**
-    - app/utils/utils_redis.py
-    - app/controllers/controllers_items.py
-    - app/controllers/controllers_ml.py
+    -
 
 ### S3 Pre-signed URLs
 
@@ -82,11 +81,18 @@ Overview
 
 ### Core - Statelessness
 
-- **What data is stored within your application that is not stored in cloud data services?:** [eg. intermediate video files that have been transcoded but not stabilised]
-- **Why is this data not considered persistent state?:** [eg. intermediate files can be recreated from source if they are lost]
-- **How does your application ensure data consistency if the app suddenly stops?:** [eg. journal used to record data transactions before they are done.  A separate task scans the journal and corrects problems on startup and once every 5 minutes afterwards. ]
+- **What data is stored within your application that is not stored in cloud data services?:** Temporary intermediate files such as the ML training queue status (stored in queue_status.txt) and local model artifacts/scalers/features if LOCAL_STORAGE=True (though this is set to False in production, defaulting to S3). The Redis queue itself is containerized and considered cloud-based, but the status file is a local summary for debugging.
+- **Why is this data not considered persistent state?:** This data is ephemeral and can be recreated from source (e.g., the queue status can be regenerated from Redis data, and local files are backups or intermediates that are not critical for app operation). If lost, the app continues functioning using cloud-stored data.
+- **How does your application ensure data consistency if the app suddenly stops?:** All critical persistent data (user profiles, groups, items, models, and files) is stored in cloud services (RDS, S3, Redis). The app does not rely on local state; upon restart, it reloads from cloud services, ensuring consistency. Temporary local files are not used for core operations and are regenerated as needed.
 - **Relevant files:**
-    -
+    - app/utils/ml_utils.py
+    - app/utils/utils_redis.py
+    - app/controllers/controllers_items.py
+    - app/controllers/controllers_ml.py
+    - app/models/models_items.py
+    - app/models/models_ml.py
+    - app/db/db.py
+    - app/tmp/queue_status.txt
 
 ### Graceful handling of persistent connections
 
@@ -127,22 +133,22 @@ Overview
 
 ### Core - DNS with Route53
 
-- **Subdomain**:  [eg. myawesomeapp.cab432.com]
+- **Subdomain**: steam-market-price-predictor.cab432.com
 - **Video timestamp:**
 
 ### Parameter store
 
-- **Parameter names:** /steam-market-predictor/s3-bucket-name, /steam-market-predictor/steam-api-base and /steam-market-predictor/steam-com-base
+- **Parameter names:** /steam-market-predictor/s3-bucket-name, /steam-market-predictor/steam-api-base and /steam-market-predictor/steam-com-base, /steam-market-predictor/cognito-domain, /steam-market-predictor/aws-secret-manager
 - **Video timestamp:**
 - **Relevant files:**
     - app/aws_values.py
 
 ### Secrets manager
 
-- **Secrets names:** [eg. n1234567-youtube-api-key]
-- **Video timestamp:**
+- **Secrets names:** n11275561-demosecret
+- **Video timestamp:** 
 - **Relevant files:**
-    -
+    - app/aws_values.py
 
 ### Infrastructure as code
 

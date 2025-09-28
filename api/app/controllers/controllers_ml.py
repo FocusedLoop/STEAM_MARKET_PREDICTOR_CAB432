@@ -1,6 +1,6 @@
 from fastapi import HTTPException, Depends, Request
 from fastapi.responses import Response
-from app.auth.jwt import authenticate_token
+from app.auth.cognito_jwt import get_current_user
 from app.utils.ml_utils import validate_price_history, PriceModel
 from app.models import model_save_ml_index, model_get_ml_index, model_get_group_items, model_get_group_by_id, model_delete_ml_index
 from app.utils.utils_redis import redis_cache
@@ -9,7 +9,7 @@ from datetime import datetime
 import base64, os
 
 # Handle training groups of models, go through each item in the group and train them
-async def group_train_model(request: Request, user=Depends(authenticate_token)):
+async def group_train_model(request: Request, user=Depends(get_current_user)):
     try:
         print("BEGINING GROUP TRAINING===============================")
         data = await request.json()
@@ -45,16 +45,14 @@ async def group_train_model(request: Request, user=Depends(authenticate_token)):
                 user["user_id"],
                 group_id,
                 item_id,
-                model_info["data_hash"],
-                model_info["model_path"],
-                model_info["scaler_path"],
-                model_info["stats_path"]
+                model_info["data_hash"]
             )
             results.append({
                 "item_id": item_id,
                 "item_name": item_name,
                 "save_info": save_info,
-                "graph": model_info.get("graph"),
+                "graph": base64.b64encode(model_info["graph"]).decode("utf-8"),  # Base64 encode PNG bytes
+                "graph_url": model_info["graph_url"],  # Include URL
                 "metrics": model_info.get("metrics", {})
             })
 
@@ -62,15 +60,16 @@ async def group_train_model(request: Request, user=Depends(authenticate_token)):
             raise HTTPException(status_code=400, detail="No models trained (no price history for any items)")
 
         # Invalidate cache for this group's models
-        # If only one item, return the singular graph
+        # If only one item, return the singular graph and URL
         await redis_cache.delete(f"group:{group_id}:models:{user['user_id']}")
+        print("Cache deleted for group models")
         if len(results) == 1:
-            return Response(content=results[0]["graph"], media_type="image/png")
+            return {
+                "graph": results[0]["graph"],  # Base64 PNG
+                "graph_url": results[0]["graph_url"]  # URL
+            }
 
-        # If multiple, return a JSON with base64-encoded graphs
-        for r in results:
-            if r["graph"]:
-                r["graph"] = base64.b64encode(r["graph"]).decode("utf-8")
+        # If multiple, return a JSON with graphs and URLs
         return {"success": True, "trained_models": results}
     except HTTPException:
         raise
@@ -78,7 +77,7 @@ async def group_train_model(request: Request, user=Depends(authenticate_token)):
         raise HTTPException(status_code=500, detail=f"Failed to train models for group: {str(e)}")
 
 # Get a group that have generated models (Read: Cache result)
-async def get_group_with_models(group_id: int, user=Depends(authenticate_token)):
+async def get_group_with_models(group_id: int, user=Depends(get_current_user)):
     try:
         # Check cache first
         cache_key = f"group:{group_id}:models:{user['user_id']}"
@@ -92,6 +91,8 @@ async def get_group_with_models(group_id: int, user=Depends(authenticate_token))
         if not group or group.get("user_id") != user["user_id"]:
             raise HTTPException(status_code=404, detail="Group not found")
 
+        # Get model info for each item
+        s3_manager = S3StorageManager()
         items = model_get_group_items(user["user_id"], group_id)
         items_with_models = []
         for item in items:
@@ -99,9 +100,29 @@ async def get_group_with_models(group_id: int, user=Depends(authenticate_token))
             item_name = item["item_name"]
             model_info = model_get_ml_index(user["user_id"], item_id)
             if model_info:
+                data_hash = model_info["data_hash"]
+                
+                # Generate download URLs for the artifacts
+                model_url = None
+                scaler_url = None
+                stats_url = None
+                graph_url = None
+                if s3_manager.s3_client:
+                    model_key = f"models/model_{data_hash}.joblib"
+                    model_url = s3_manager.generate_download_url(model_key)
+                    scaler_key = f"scalers/scaler_{data_hash}.joblib"
+                    scaler_url = s3_manager.generate_download_url(scaler_key)
+                    stats_key = f"features/feature_means_{data_hash}.json"
+                    stats_url = s3_manager.generate_download_url(stats_key)
+                    graph_key = f"graphs/training_graph_{data_hash}.png"
+                    graph_url = s3_manager.generate_download_url(graph_key)
                 items_with_models.append({
                     "item_id": item_id,
-                    "item_name": item_name
+                    "item_name": item_name,
+                    "model_url": model_url,
+                    "scaler_url": scaler_url,
+                    "stats_url": stats_url,
+                    "graph_url": graph_url
                 })
 
         if not items_with_models:
@@ -113,6 +134,7 @@ async def get_group_with_models(group_id: int, user=Depends(authenticate_token))
             "items": items_with_models
         }
         await redis_cache.set(cache_key, result, ttl=300)
+        print("Cache set for group model items")
         return result
     except HTTPException:
         raise
@@ -120,7 +142,7 @@ async def get_group_with_models(group_id: int, user=Depends(authenticate_token))
         raise HTTPException(status_code=500, detail=f"Failed to fetch group with models: {str(e)}")
 
 # Delete group that have generated models
-async def delete_group_model(group_id: int, user=Depends(authenticate_token)):
+async def delete_group_model(group_id: int, user=Depends(get_current_user)):
     try:
         # Get all model_index entries for this group/user before deleting
         items = model_get_group_items(user["user_id"], group_id)
@@ -128,23 +150,24 @@ async def delete_group_model(group_id: int, user=Depends(authenticate_token)):
         for item in items:
             model_info = model_get_ml_index(user["user_id"], item["id"])
             if model_info:
-                model_files.append(model_info.get("model_path"))
-                model_files.append(model_info.get("scaler_path"))
-                model_files.append(model_info.get("stats_path"))
+                data_hash = model_info["data_hash"]
+                model_files.append(f"models/model_{data_hash}.joblib")
+                model_files.append(f"scalers/scaler_{data_hash}.joblib")
+                model_files.append(f"features/feature_means_{data_hash}.json")
+                model_files.append(f"graphs/training_graph_{data_hash}.png")
 
         # Delete from DB
         result = model_delete_ml_index(user["user_id"], group_id)
         if result.get("deleted"):
-            # Delete files from disk
+            # Delete files from disk or S3
             s3_manager = S3StorageManager()
             for f in model_files:
-                if f and os.path.exists(f):
+                if os.path.exists(f):
                     try:
                         os.remove(f)
                     except Exception as e:
                         print(f"Warning: Could not delete {f}: {e}")
-                else:
-                    # S3 storage: Delete object by key
+                elif s3_manager.s3_client:
                     try:
                         s3_manager.delete_file(f)
                     except Exception as e:
@@ -152,6 +175,7 @@ async def delete_group_model(group_id: int, user=Depends(authenticate_token)):
             
             # Invalidate cache for this group's models
             await redis_cache.delete(f"group:{group_id}:models:{user['user_id']}")
+            print("Cache deleted for group models")
             return {"success": True, "message": "Models deleted for group", "group_id": group_id}
         else:
             raise HTTPException(status_code=404, detail="No models found for this group or user")
@@ -161,8 +185,8 @@ async def delete_group_model(group_id: int, user=Depends(authenticate_token)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete models for group: {str(e)}")
 
-# Handle predicting item prices
-async def predict_item_prices(group_id: int, request: Request, user=Depends(authenticate_token)):
+# NOTE: Graphs have no way to be deleted currently
+async def predict_item_prices(group_id: int, request: Request, user=Depends(get_current_user)):
     try:
         data = await request.json()
         item_id = data.get("item_id")
@@ -193,12 +217,13 @@ async def predict_item_prices(group_id: int, request: Request, user=Depends(auth
         prediction = model.generate_prediction(
             start_time,
             end_time,
-            model_info["model_path"],
-            model_info["scaler_path"],
-            model_info["stats_path"]
+            model_info["data_hash"]
         )
-        img_bytes = model._generate_prediction_graph(prediction["result"])
-        return Response(content=img_bytes, media_type="image/png")
+        # Return JSON with both base64 graph and URL
+        return {
+            "graph": base64.b64encode(prediction["graph"]).decode("utf-8"),  # Base64 PNG
+            "graph_url": prediction["graph_url"]  # URL
+        }
     except HTTPException:
         raise
     except Exception as e:

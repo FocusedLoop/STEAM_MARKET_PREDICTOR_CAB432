@@ -29,18 +29,11 @@ docker compose up -d
 
 
 # Pushing to image
-export GIT_SHA=$(git rev-parse --short HEAD)
-
-docker build -t a2-pairs-5-a2-assessment2-repo:$GIT_SHA ./api
-
-docker tag a2-pairs-5-a2-assessment2-repo:$GIT_SHA 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/a2-pairs-5-a2-assessment2-repo:latest
-
+docker build -t a2-pairs-5-a2-assessment2-repo .
+docker tag a2-pairs-5-a2-assessment2-repo:latest 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/a2-pairs-5-a2-assessment2-repo:latest
 docker push 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/a2-pairs-5-a2-assessment2-repo:latest
-
-docker build -t api-web:$GIT_SHA ./api/web
-
-docker tag api-web:$GIT_SHA 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/api-web:latest
-
+docker build -t api-web ./web
+docker tag api-web:latest 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/api-web:latest
 docker push 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/api-web:latest
 
 

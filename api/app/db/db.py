@@ -2,6 +2,7 @@ import os, sys
 import psycopg2
 import time
 from psycopg2 import sql
+from distutils.util import strtobool
 
 # TODO Add to paramter store and secrets manager
 DB_HOST = "database-1-instance-1.ce2haupt2cta.ap-southeast-2.rds.amazonaws.com"
@@ -10,6 +11,9 @@ DB_PASSWORD = os.environ.get("DB_PASSWORD")
 DB_NAME = "cohort_2025"
 DB_PORT = 5432
 DB_SCHEMA = os.environ.get("DB_SCHEMA", DB_USER)
+
+# Reset database option
+RESET_DATABASE = bool(strtobool(os.environ.get("RESET_DATABASE", "False")))
 
 # Get a connection to the database, retry 10 times
 def get_connection():
@@ -35,15 +39,39 @@ def get_connection():
     print("Failed to connect to PostgreSQL after 10 attempts. Exiting.")
     sys.exit(1)
 
+# Drop all tables (in reverse order due to foreign key constraints)
+def drop_all_tables(conn: psycopg2.extensions.connection):
+    cursor = conn.cursor()
+    try:
+        tables_to_drop = [
+            "model_index",
+            "group_items", 
+            "groups",
+            "users"
+        ]
+        
+        for table in tables_to_drop:
+            cursor.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
+            print(f"Dropped table: {table}")
+        
+        conn.commit()
+        print("All tables dropped successfully.")
+    except Exception as e:
+        print(f"Error dropping tables: {e}")
+        conn.rollback()
+        raise
+    finally:
+        cursor.close()
+
 # Create user table
 def create_user_table(conn: psycopg2.extensions.connection):
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id SERIAL PRIMARY KEY,
-            username VARCHAR(255) UNIQUE NOT NULL,
-            steam_id BIGINT,
-            password VARCHAR(255) NOT NULL
+            cognito_id VARCHAR(255) UNIQUE NOT NULL,
+            username VARCHAR(255) NOT NULL,
+            steam_id BIGINT
         );
     """)
     conn.commit()
@@ -74,6 +102,7 @@ def create_group_items_table(conn: psycopg2.extensions.connection):
     """)
     conn.commit()
 
+
 # Create model index table
 def create_model_index_table(conn: psycopg2.extensions.connection):
     cursor = conn.cursor()
@@ -84,9 +113,6 @@ def create_model_index_table(conn: psycopg2.extensions.connection):
             group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
             item_id INTEGER NOT NULL,
             data_hash VARCHAR(32) NOT NULL,
-            model_path VARCHAR(255) NOT NULL,
-            scaler_path VARCHAR(255) NOT NULL,
-            stats_path VARCHAR(255) NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     """)
@@ -96,14 +122,27 @@ def create_model_index_table(conn: psycopg2.extensions.connection):
 def init_db():
     conn = get_connection()
     try:
+        # Reset database if environment variable is set
+        if RESET_DATABASE:
+            print("RESET_DATABASE=True detected. Dropping all tables...")
+            drop_all_tables(conn)
+            print("Database reset completed. Creating fresh tables...")
+        
         create_user_table(conn)
         create_groups_table(conn)
         create_group_items_table(conn)
         create_model_index_table(conn)
-        print("Database initialized and tables ensured.")
+        
+        if RESET_DATABASE:
+            print("Database reset and reinitialized successfully.")
+        else:
+            print("Database initialized and tables ensured.")
+            
     except Exception as e:
         print(f"DB init failed: {e}")
     finally:
         conn.close()
 
+
 init_db()
+

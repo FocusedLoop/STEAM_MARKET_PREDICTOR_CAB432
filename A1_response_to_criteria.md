@@ -106,21 +106,21 @@ Overview
 
 - **User pool name:** a2-pairs-5
 - **How are authentication tokens handled by the client?:** The client-side app initiates the login process. Upon successful authentication, the backend API returns a JWT to the client. The client then stores this token in its session state. For all subsequent requests to protected API endpoints, the client includes the JWT in the Authorization header as a Bearer token.
-- **Video timestamp:**
+- **Video timestamp:** 6:35 - 7:35
 - **Relevant files:**
     - api/app/auth/cognito_jwt.py
 
 ### Cognito multi-factor authentication
 
 - **What factors are used for authentication:** password and email
-- **Video timestamp:**
+- **Video timestamp:** 6:53 - 7:35
 - **Relevant files:**
     - api/app/controllers/controller_auth.py
 
 ### Cognito federated identities
 
 - **Identity providers used:** google
-- **Video timestamp:**
+- **Video timestamp:** 6:19 - 6:34
 - **Relevant files:**
     - web_page.py
 

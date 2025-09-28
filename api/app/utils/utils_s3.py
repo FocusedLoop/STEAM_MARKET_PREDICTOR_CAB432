@@ -91,20 +91,6 @@ class S3StorageManager:
             print(f"Failed to download file from S3: {e}")
             return None
 
-    # TODO: IMPLEMENT FOR S3 urls
-    def file_exists(self, file_key: str) -> bool:
-        """
-        Check if a file exists in S3.
-        """
-        if not self.s3_client:
-            return False
-
-        try:
-            self.s3_client.head_object(Bucket=self.bucket_name, Key=file_key)
-            return True
-        except ClientError:
-            return False
-
     def generate_presigned_url(self, file_key: str, operation: str = 'get_object', expiration: int = 3600) -> Optional[str]:
         """
         Generate a presigned URL for S3 operations.
@@ -124,32 +110,6 @@ class S3StorageManager:
             return url
         except ClientError as e:
             print(f"Failed to generate presigned URL: {e}")
-            return None
-
-    def generate_upload_url(self, file_key: str, content_type: str = None, expiration: int = 3600) -> Optional[str]:
-        """
-        Generate a presigned URL for uploading files to S3.
-        """
-        if not self.s3_client:
-            return None
-
-        try:
-            params = {
-                'Bucket': self.bucket_name,
-                'Key': file_key
-            }
-
-            if content_type:
-                params['ContentType'] = content_type
-
-            url = self.s3_client.generate_presigned_url(
-                'put_object',
-                Params=params,
-                ExpiresIn=expiration
-            )
-            return url
-        except ClientError as e:
-            print(f"Failed to generate upload URL: {e}")
             return None
 
     def generate_download_url(self, file_key: str, expiration: int = 3600) -> Optional[str]:
@@ -172,23 +132,3 @@ class S3StorageManager:
         except ClientError as e:
             print(f"Failed to delete file from S3: {e}")
             return False
-
-    # UNUSED
-    def list_files(self, prefix: str = "") -> list:
-        """
-        List files in the S3 bucket with optional prefix.
-        """
-        if not self.s3_client:
-            return []
-
-        try:
-            files = []
-            paginator = self.s3_client.get_paginator('list_objects_v2')
-            for page in paginator.paginate(Bucket=self.bucket_name, Prefix=prefix):
-                if 'Contents' in page:
-                    for obj in page['Contents']:
-                        files.append(obj['Key'])
-            return files
-        except ClientError as e:
-            print(f"Failed to list files in S3: {e}")
-            return []

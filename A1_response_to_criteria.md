@@ -16,7 +16,7 @@ Overview
 - **Name:** Joshua Wlodarczyk
 - **Student number:** n11275561
 - **Partner name:** Zakk Wilson-Christian
-- **Partner number:** 
+- **Partner number:** n11803444
 - **Application name:** Steam Market Predictor
 - **Two line description:** The REST API predicts item prices over time using a Random Forest ML model trained on Steam market history data provided by the user. The web app helps users collect and upload this data, organize items into groups, and visualize predictions as graphs. This was all hosted on a Micro t3 instance
 - **EC2 instance name or ID:** i-044e1085de13ea78f
@@ -104,25 +104,25 @@ Overview
 
 ### Core - Authentication with Cognito
 
-- **User pool name:**
-- **How are authentication tokens handled by the client?:** [eg. Response to login request sets a cookie containing the token.]
+- **User pool name:** a2-pairs-5
+- **How are authentication tokens handled by the client?:** The client-side app initiates the login process. Upon successful authentication, the backend API returns a JWT to the client. The client then stores this token in its session state. For all subsequent requests to protected API endpoints, the client includes the JWT in the Authorization header as a Bearer token.
 - **Video timestamp:**
 - **Relevant files:**
-    -
+    - api/app/auth/cognito_jwt.py
 
 ### Cognito multi-factor authentication
 
-- **What factors are used for authentication:** [eg. password, SMS code]
+- **What factors are used for authentication:** password and email
 - **Video timestamp:**
 - **Relevant files:**
-    -
+    - api/app/controllers/controller_auth.py
 
 ### Cognito federated identities
 
-- **Identity providers used:**
+- **Identity providers used:** google
 - **Video timestamp:**
 - **Relevant files:**
-    -
+    - web_page.py
 
 ### Cognito groups
 
@@ -152,11 +152,21 @@ Overview
 
 ### Infrastructure as code
 
-- **Technology used:**
+- **Technology used:** terraform
 - **Services deployed:**
+    - AWS Cognito
+    - AWS S3 (Storage Bucket)
+    - AWS Secrets Manager
+    - AWS Route 53 
 - **Video timestamp:**
 - **Relevant files:**
-    -
+    - infra/provider.tf
+    - infra/variables.tf
+    - infra/cognito.tf
+    - infra/s3.tf
+    - infra/secrets.tf
+    - infra/network.tf
+    - infra/outputs.tf
 
 ### Other (with prior approval only)
 

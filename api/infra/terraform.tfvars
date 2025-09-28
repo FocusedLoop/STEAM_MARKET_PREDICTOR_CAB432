@@ -1,0 +1,1 @@
+cognito_app_client_secret = "1vrofj2ldps4h4debfc7qb9pvh7olkvfv1eibf99v7uds47ltnjf"

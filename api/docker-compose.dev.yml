@@ -11,8 +11,6 @@ services:
       - .env
     environment:
       - DB_HOST=db
-      - DB_USER=user
-      - DB_PASSWORD=pass
       - DB_NAME=tasksdb
       - REDIS_HOST=redis
       - REDIS_PORT=6379

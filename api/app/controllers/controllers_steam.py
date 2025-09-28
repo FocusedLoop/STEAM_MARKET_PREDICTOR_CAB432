@@ -1,10 +1,10 @@
 from fastapi import HTTPException, Request, Depends
-from app.auth.jwt import authenticate_token
+from app.auth.cognito_jwt import get_current_user 
 from fastapi.responses import JSONResponse
 from app.services import steamAPI
 
 # Get top games for the authenticated user
-async def get_steam_top_games(user=Depends(authenticate_token)):
+async def get_steam_top_games(user=Depends(get_current_user)):
     try:
         steam = steamAPI(user["steam_id"])
         top_games = steam.find_suitable_games()
@@ -13,7 +13,7 @@ async def get_steam_top_games(user=Depends(authenticate_token)):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Get price history for a specific item
-async def get_steam_item_history(request: Request, user=Depends(authenticate_token)):
+async def get_steam_item_history(request: Request, user=Depends(get_current_user)):
     try:
         data = await request.json()
         appid = data.get("appid")

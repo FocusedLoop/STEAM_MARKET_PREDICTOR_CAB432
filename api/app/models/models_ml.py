@@ -8,13 +8,13 @@ def model_set_group_has_ml(conn: psycopg2.extensions.connection, group_id: int, 
     conn.commit()
 
 # Save a new model index into the database
-def model_save_ml_index(user_id: int, group_id: int, item_id: int, data_hash: str, model_path: str, scaler_path: str, stats_path: str):
+def model_save_ml_index(user_id: int, group_id: int, item_id: int, data_hash: str):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO model_index (user_id, group_id, item_id, data_hash, model_path, scaler_path, stats_path)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-    """, (user_id, group_id, item_id, data_hash, model_path, scaler_path, stats_path))
+        INSERT INTO model_index (user_id, group_id, item_id, data_hash)
+        VALUES (%s, %s, %s, %s)
+    """, (user_id, group_id, item_id, data_hash))
     cursor.execute("SELECT LASTVAL()")
     model_id = cursor.fetchone()[0]
     conn.commit()

@@ -3,7 +3,6 @@ psycopg2-binary
 uvicorn
 dotenv
 PyJWT
-requests
 statsmodels
 scikit-learn
 matplotlib
@@ -12,3 +11,16 @@ fastparquet
 redis
 boto3
 joblib
+
+authlib 
+werkzeug 
+flask 
+requests
+pycognito
+
+cryptography
+python-dotenv
+boto3
+pydantic
+
+email-validator

@@ -10,7 +10,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 from queue import Queue, Full
-from .utils_s3 import S3StorageManager
+from shared import S3StorageManager
 import os, json, threading
 from distutils.util import strtobool 
 

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
 from app.auth.cognito_jwt import get_current_user
-from app.utils import validate_price_history
-from app.utils.utils_redis import redis_cache
+from STEAM_MARKET_PREDICTOR_CAB432.api.app.services.sklearn import SklearnClient
+from STEAM_MARKET_PREDICTOR_CAB432.api.app.services.redis import redis_cache
 from app.models import (
     model_get_all_groups,
     model_get_group_by_id,
@@ -14,7 +14,11 @@ from app.models import (
     model_get_group_items
 )
 
+
 router = APIRouter()
+
+# Initialize sklearn client
+sklearn_client = SklearnClient()
 
 # Create a new group
 async def create_group(request: Request, user=Depends(get_current_user)):
@@ -57,7 +61,7 @@ async def add_item_to_group(group_id: int, request: Request, user=Depends(get_cu
     item_name = data.get("item_name")
     item_json = data.get("item_json")
 
-    is_valid, error_msg = validate_price_history(item_json)
+    is_valid, error_msg = sklearn_client.validate_price_history(item_json)
     if not is_valid:
         raise HTTPException(status_code=400, detail=f"Invalid price history: {error_msg}")
     if not item_name or not item_json or not group_id:

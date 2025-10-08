@@ -1,5 +1,5 @@
 from typing import Any, Optional
-import threading, redis, json, os
+import threading, STEAM_MARKET_PREDICTOR_CAB432.api.app.services.redis as redis, json, os
 import redis.asyncio
 import joblib
 import base64

@@ -13,7 +13,7 @@ from app.routes.routes_steam import router as steam_router
 from app.routes.routes_auth import router as auth_router
 
 # Initialize APIno
-SITE_PORT = os.environ.get("SITE_PORT")
+SITE_PORT = os.environ.get("APP_PORT")
 
 app = FastAPI(
     title="Steam Market Price Predictor API",

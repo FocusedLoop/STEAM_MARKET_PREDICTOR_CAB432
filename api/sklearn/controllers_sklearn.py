@@ -1,1 +1,0 @@
-# model = PriceModel(user["user_id"], user["username"], item_id, item_name)

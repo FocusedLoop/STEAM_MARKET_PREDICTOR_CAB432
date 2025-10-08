@@ -1,12 +1,15 @@
 from fastapi import HTTPException, Depends, Request
 from fastapi.responses import Response
 from app.auth.cognito_jwt import get_current_user
-from app.utils.ml_utils import validate_price_history, PriceModel
 from app.models import model_save_ml_index, model_get_ml_index, model_get_group_items, model_get_group_by_id, model_delete_ml_index
-from app.utils.utils_redis import redis_cache
-from app.utils.utils_s3 import S3StorageManager
+from app.services.sklearn import SklearnClient
+from app.services.redis import redis_cache
+from shared import S3StorageManager
 from datetime import datetime
 import base64, os
+
+# Initialize sklearn client
+sklearn_client = SklearnClient()
 
 # Handle training groups of models, go through each item in the group and train them
 async def group_train_model(request: Request, user=Depends(get_current_user)):
@@ -35,26 +38,41 @@ async def group_train_model(request: Request, user=Depends(get_current_user)):
             price_history = {"prices": price_history}
 
             # Validate JSON structure
-            is_valid, error_msg = validate_price_history(price_history)
+            is_valid, error_msg = await sklearn_client.validate_price_history(price_history)
             if not is_valid:
                 raise HTTPException(status_code=400, detail=f"Invalid price history for item {item_id}: {error_msg}")
 
-            model = PriceModel(user["user_id"], user["username"], item_id, item_name)
-            model_info = model.create_model(price_history)
-            save_info = model_save_ml_index(
-                user["user_id"],
-                group_id,
-                item_id,
-                model_info["data_hash"]
-            )
-            results.append({
-                "item_id": item_id,
-                "item_name": item_name,
-                "save_info": save_info,
-                "graph": base64.b64encode(model_info["graph"]).decode("utf-8"),  # Base64 encode PNG bytes
-                "graph_url": model_info["graph_url"],  # Include URL
-                "metrics": model_info.get("metrics", {})
-            })
+            # Call sklearn service to train model
+            try:
+                response = await sklearn_client.train_model(
+                    user["user_id"], 
+                    user["username"], 
+                    item_id, 
+                    item_name, 
+                    price_history
+                )
+                
+                if not response.get("success"):
+                    raise HTTPException(status_code=500, detail=f"Training failed for item {item_id}")
+                
+                model_data = response["data"]
+                save_info = model_save_ml_index(
+                    user["user_id"],
+                    group_id,
+                    item_id,
+                    model_data["data_hash"]
+                )
+                
+                results.append({
+                    "item_id": item_id,
+                    "item_name": item_name,
+                    "save_info": save_info,
+                    "graph": model_data["graph"],
+                    "graph_url": model_data["graph_url"],
+                    "metrics": model_data.get("metrics", {})
+                })
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Training failed for item {item_id}: {str(e)}")
 
         if not results:
             raise HTTPException(status_code=400, detail="No models trained (no price history for any items)")
@@ -213,17 +231,29 @@ async def predict_item_prices(group_id: int, request: Request, user=Depends(get_
         if not model_info:
             raise HTTPException(status_code=404, detail="Model not found for user/item")
 
-        model = PriceModel(user["user_id"], user["username"], item_id, item_name)
-        prediction = model.generate_prediction(
-            start_time,
-            end_time,
-            model_info["data_hash"]
-        )
-        # Return JSON with both base64 graph and URL
-        return {
-            "graph": base64.b64encode(prediction["graph"]).decode("utf-8"),  # Base64 PNG
-            "graph_url": prediction["graph_url"]  # URL
-        }
+        # Call sklearn service to predict price
+        try:
+            response = await sklearn_client.predict_price(
+                user["user_id"],
+                user["username"], 
+                item_id,
+                item_name,
+                model_info["data_hash"],
+                start_time.isoformat(),
+                end_time.isoformat()
+            )
+            
+            if not response.get("success"):
+                raise HTTPException(status_code=500, detail="Prediction failed")
+            
+            prediction_data = response["data"]
+            return {
+                "graph": prediction_data["graph"],
+                "graph_url": prediction_data["graph_url"]
+            }
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
     except HTTPException:
         raise
     except Exception as e:

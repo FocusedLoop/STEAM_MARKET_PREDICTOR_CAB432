@@ -1,9 +1,9 @@
+# Use the actual VPC from your instance
 data "aws_vpc" "main" {
-  tags = {
-    Name = "${var.project_name}-vpc"
-  }
+  id = "vpc-007bab53289655834"
 }
 
+# Get subnets in that VPC
 data "aws_subnets" "default" {
   filter {
     name   = "vpc-id"
@@ -11,11 +11,16 @@ data "aws_subnets" "default" {
   }
 }
 
+# Use the CAB432SG security group from your instance
 data "aws_security_group" "default" {
-  name   = "default"
-  vpc_id = data.aws_vpc.main.id
+  id = "sg-032bd1ff8cf77dbb9"
+}
+
+# Use the existing IAM role from your instance
+data "aws_iam_role" "ecs_execution" {
+  name = "CAB432-Instance-Role"
 }
 
 data "aws_iam_role" "ecs_task" {
-  name = "${var.project_name}-ecs-task-role"
+  name = "CAB432-Instance-Role"
 }

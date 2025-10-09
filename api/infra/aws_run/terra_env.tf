@@ -90,30 +90,56 @@ resource "aws_ecs_cluster" "main" {
   tags = var.common_tags
 }
 
-# CloudWatch Log Groups
-resource "aws_cloudwatch_log_group" "api" {
-  name              = "/ecs/${var.project_name}-api"
-  retention_in_days = 7
-  tags              = var.common_tags
+# Docker Images
+variable "api_docker_image" {
+  description = "Docker image for the API service"
+  type        = string
 }
 
-resource "aws_cloudwatch_log_group" "web" {
-  name              = "/ecs/${var.project_name}-web"
-  retention_in_days = 7
-  tags              = var.common_tags
+variable "web_docker_image" {
+  description = "Docker image for the Web service"
+  type        = string
 }
 
-resource "aws_cloudwatch_log_group" "sklearn" {
-  name              = "/ecs/${var.project_name}-sklearn"
-  retention_in_days = 7
-  tags              = var.common_tags
+variable "sklearn_docker_image" {
+  description = "Docker image for the Sklearn service"
+  type        = string
 }
 
-resource "aws_cloudwatch_log_group" "redis" {
-  name              = "/ecs/${var.project_name}-redis"
-  retention_in_days = 7
-  tags              = var.common_tags
+variable "redis_docker_image" {
+  description = "Docker image for the Redis service"
+  type        = string
 }
+
+variable "sklearn_docker_image" {
+  description = "Docker image for the Sklearn service"
+  type        = string
+}
+
+# # CloudWatch Log Groups
+# resource "aws_cloudwatch_log_group" "api" {
+#   name              = "/ecs/${var.project_name}-api"
+#   retention_in_days = 7
+#   tags              = var.common_tags
+# }
+
+# resource "aws_cloudwatch_log_group" "web" {
+#   name              = "/ecs/${var.project_name}-web"
+#   retention_in_days = 7
+#   tags              = var.common_tags
+# }
+
+# resource "aws_cloudwatch_log_group" "sklearn" {
+#   name              = "/ecs/${var.project_name}-sklearn"
+#   retention_in_days = 7
+#   tags              = var.common_tags
+# }
+
+# resource "aws_cloudwatch_log_group" "redis" {
+#   name              = "/ecs/${var.project_name}-redis"
+#   retention_in_days = 7
+#   tags              = var.common_tags
+# }
 
 # Convert all variables to locals for use in task definitions
 locals {
@@ -169,6 +195,22 @@ locals {
     {
       name  = "SKLEARN_SERVICE_URL"
       value = var.sklearn_service_url
+    },
+    {
+      name  = "API_DOCKER_IMAGE"
+      value = var.api_docker_image
+    },
+    {
+      name  = "WEB_DOCKER_IMAGE"
+      value = var.web_docker_image
+    },
+    {
+      name  = "SKLEARN_DOCKER_IMAGE"
+      value = var.sklearn_docker_image
+    },
+    {
+      name  = "REDIS_DOCKER_IMAGE"
+      value = var.redis_docker_image
     }
   ]
 }

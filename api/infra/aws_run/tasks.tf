@@ -11,7 +11,7 @@ resource "aws_ecs_task_definition" "api" {
   container_definitions = jsonencode([
     {
       name  = "api"
-      image = "901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/steam-predictor-api:latest"
+      image = "${aws_ecr_repository.steam_predictor_api.repository_url}:latest"
       
       portMappings = [
         {
@@ -55,7 +55,7 @@ resource "aws_ecs_task_definition" "web" {
   container_definitions = jsonencode([
     {
       name  = "web"
-      image = "901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/steam-predictor-web:latest"
+      image = "${aws_ecr_repository.steam_predictor_web.repository_url}:latest"
       
       portMappings = [
         {
@@ -99,7 +99,7 @@ resource "aws_ecs_task_definition" "sklearn" {
   container_definitions = jsonencode([
     {
       name  = "sklearn"
-      image = "901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/steam-predictor-sklearn:latest"
+      image = "${aws_ecr_repository.steam_predictor_sklearn.repository_url}:latest"
       
       portMappings = [
         {
@@ -143,7 +143,7 @@ resource "aws_ecs_task_definition" "redis" {
   container_definitions = jsonencode([
     {
       name  = "redis"
-      image = "redis:7-alpine"
+      image = "${aws_ecr_repository.steam_predictor_redis.repository_url}:latest"
       
       portMappings = [
         {
@@ -177,75 +177,6 @@ resource "aws_ecs_task_definition" "redis" {
       }
     }
   ])
-
-  tags = var.common_tags
-}
-
-# ECS Services
-# Backend API
-resource "aws_ecs_service" "api" {
-  name            = "${var.project_name}-api"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.api.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets          = data.aws_subnets.default.ids      # Uses subnets from VPC
-    security_groups  = [data.aws_security_group.default.id]  # Uses security group from VPC
-    assign_public_ip = true
-  }
-
-  tags = var.common_tags
-}
-
-# Sklearn Service
-resource "aws_ecs_service" "sklearn" {
-  name            = "${var.project_name}-sklearn"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.sklearn.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets          = data.aws_subnets.default.ids      # Same VPC
-    security_groups  = [data.aws_security_group.default.id]  # Same security group
-    assign_public_ip = false
-  }
-
-  tags = var.common_tags
-}
-
-# Redis Service
-resource "aws_ecs_service" "redis" {
-  name            = "${var.project_name}-redis"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.redis.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets          = data.aws_subnets.default.ids      # Same VPC
-    security_groups  = [data.aws_security_group.default.id]  # Same security group
-    assign_public_ip = false
-  }
-
-  tags = var.common_tags
-}
-
-# Frontend Web
-resource "aws_ecs_service" "web" {
-  name            = "${var.project_name}-web"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.web.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets          = data.aws_subnets.default.ids      # Same VPC
-    security_groups  = [data.aws_security_group.default.id]  # Same security group
-    assign_public_ip = true  # Public access for now
-  }
 
   tags = var.common_tags
 }

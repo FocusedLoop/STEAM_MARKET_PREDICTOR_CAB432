@@ -2,7 +2,7 @@
 aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com
 
 # API
-docker build -f api/Dockerfile -t steam-predictor-api .
+docker build -f api/app/Dockerfile -t steam-predictor-api .
 docker tag steam-predictor-api:latest 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/steam-predictor-api:latest
 docker push 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/steam-predictor-api:latest
 
@@ -12,7 +12,7 @@ docker tag redis:7-alpine 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/stea
 docker push 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/steam-predictor-redis:latest
 
 # Web
-docker build -f api/web/Dockerfile -t steam-predictor-web .
+docker build -f api/web/Dockerfile -t steam-predictor-web api/web
 docker tag steam-predictor-web:latest 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/steam-predictor-web:latest
 docker push 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/steam-predictor-web:latest
 

@@ -1,5 +1,7 @@
-import os, boto3, json
+import os, boto3, json, logging
 from botocore.exceptions import ClientError
+
+logger = logging.getLogger(__name__)
 
 # Load parameters at startup from SSM Parameter Store
 AWS_REGION = os.environ.get('AWS_REGION')
@@ -18,9 +20,9 @@ def load_parameters():
             response = ssm.get_parameter(Name=param_name, WithDecryption=True)
             parameters[env_key] = response['Parameter']['Value']
         except ClientError as e:
-            print(f"Error loading parameter {param_name}: {e}")
-    print("Parameters loaded from SSM Parameter Store")
-    print("Loaded parameters:", parameters)
+            logger.error(f"Error loading parameter {param_name}: {e}")
+    logger.info("Parameters loaded from SSM Parameter Store")
+    logger.info(f"Loaded parameters: {list(parameters.keys())}")
     return parameters
 
 def load_secret_manager():
@@ -33,12 +35,12 @@ def load_secret_manager():
         # Parse the secret string as JSON
         secret_data = json.loads(secret_string)
         
-        print("Secrets loaded from AWS Secrets Manager")
-        print("Loaded secrets:", list(secret_data.keys()))
+        logger.info("Secrets loaded from AWS Secrets Manager")
+        logger.info(f"Loaded secrets: {list(secret_data.keys())}")
         return secret_data
     except ClientError as e:
-        print(f"Error loading secret {AWS_SECRET_MANGER}: {e}")
+        logger.error(f"Error loading secret {AWS_SECRET_MANGER}: {e}")
         return {}
     except json.JSONDecodeError as e:
-        print(f"Error parsing secret JSON: {e}")
+        logger.error(f"Error parsing secret JSON: {e}")
         return {}

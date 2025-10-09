@@ -1,30 +1,3 @@
-# fastapi
-# psycopg2-binary
-# uvicorn
-# dotenv
-# PyJWT
-# statsmodels
-# scikit-learn
-# matplotlib
-# pyarrow
-# fastparquet
-# redis
-# boto3
-# joblib
-
-# authlib 
-# werkzeug 
-# flask 
-# requests
-# pycognito
-
-# cryptography
-# python-dotenv
-# boto3
-# pydantic
-
-# email-validator
-# steam-market-s3-utils
 fastapi
 psycopg2-binary
 uvicorn

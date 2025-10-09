@@ -5,3 +5,7 @@ older
 *__pycache__/
 .dockerignore
 test.txt
+
+.terraform/
+.terraform.lock.hcl
+*terraform.tfstate.backup

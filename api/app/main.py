@@ -1,19 +1,25 @@
 from fastapi import FastAPI
 from dotenv import load_dotenv
-from .aws_values import load_parameters, load_secret_manager
-import uvicorn, os
+from aws_values import load_parameters, load_secret_manager
+import uvicorn, os, logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
+logger.info("Loading AWS parameters and secrets...")
 os.environ.update(load_parameters())
 os.environ.update(load_secret_manager())
 
-from app.routes.routes_items import router as items_router
-from app.routes.routes_users import router as users_router
-from app.routes.routes_steam import router as steam_router
-from app.routes.routes_auth import router as auth_router
+from routes.routes_items import router as items_router
+from routes.routes_users import router as users_router
+from routes.routes_steam import router as steam_router
+from routes.routes_auth import router as auth_router
 
-# Initialize APIno
-SITE_PORT = os.environ.get("APP_PORT")
+# Initialize API
+SITE_PORT = int(os.environ.get("APP_PORT", 3010))
+logger.info(f"Initializing Steam Market Predictor API on port {SITE_PORT}")
 
 app = FastAPI(
     title="Steam Market Price Predictor API",
@@ -25,7 +31,10 @@ app = FastAPI(
 app.include_router(items_router, prefix="/group", tags=["Item Groups"])
 app.include_router(steam_router, prefix="/steam", tags=["Steam API"])
 app.include_router(users_router, prefix="/users", tags=["Users"])
-app.include_router(auth_router, prefix="/auth", tags=["Authentication"]) # Authentication routes
+app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+
+logger.info("API routes configured successfully")
 
 if __name__ == "__main__":
-  uvicorn.run(app, host="0.0.0.0", port=SITE_PORT)
+    logger.info(f"Starting server on host 0.0.0.0 port {SITE_PORT}")
+    uvicorn.run(app, host="0.0.0.0", port=SITE_PORT)

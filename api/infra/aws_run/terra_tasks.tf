@@ -1,4 +1,4 @@
-# Task Definitions for all 4 microservices
+# Task Definitions
 resource "aws_ecs_task_definition" "api" {
   family                   = "${var.project_name}-api"
   network_mode             = "awsvpc"
@@ -181,7 +181,8 @@ resource "aws_ecs_task_definition" "redis" {
   tags = var.common_tags
 }
 
-# TODO: GO THROUGH
+# ECS Services
+# Backend API
 resource "aws_ecs_service" "api" {
   name            = "${var.project_name}-api"
   cluster         = aws_ecs_cluster.main.id
@@ -192,12 +193,13 @@ resource "aws_ecs_service" "api" {
   network_configuration {
     subnets          = data.aws_subnets.default.ids      # Uses subnets from VPC
     security_groups  = [data.aws_security_group.default.id]  # Uses security group from VPC
-    assign_public_ip = true  # For now, until you add load balancer
+    assign_public_ip = true
   }
 
   tags = var.common_tags
 }
 
+# Sklearn Service
 resource "aws_ecs_service" "sklearn" {
   name            = "${var.project_name}-sklearn"
   cluster         = aws_ecs_cluster.main.id
@@ -208,12 +210,13 @@ resource "aws_ecs_service" "sklearn" {
   network_configuration {
     subnets          = data.aws_subnets.default.ids      # Same VPC
     security_groups  = [data.aws_security_group.default.id]  # Same security group
-    assign_public_ip = false  # Internal service
+    assign_public_ip = false
   }
 
   tags = var.common_tags
 }
 
+# Redis Service
 resource "aws_ecs_service" "redis" {
   name            = "${var.project_name}-redis"
   cluster         = aws_ecs_cluster.main.id
@@ -224,12 +227,13 @@ resource "aws_ecs_service" "redis" {
   network_configuration {
     subnets          = data.aws_subnets.default.ids      # Same VPC
     security_groups  = [data.aws_security_group.default.id]  # Same security group
-    assign_public_ip = false  # Internal service
+    assign_public_ip = false
   }
 
   tags = var.common_tags
 }
 
+# Frontend Web
 resource "aws_ecs_service" "web" {
   name            = "${var.project_name}-web"
   cluster         = aws_ecs_cluster.main.id

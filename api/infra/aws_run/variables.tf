@@ -1,3 +1,4 @@
+# Project
 variable "project_name" {
   description = "Name of the project"
   type        = string
@@ -6,14 +7,16 @@ variable "project_name" {
 variable "aws_region" {
   description = "AWS region"
   type        = string
+  default     = "ap-southeast-2"
 }
 
 variable "environment" {
   description = "Environment name"
   type        = string
+  default     = "dev"
 }
 
-# Port Configuration
+# Ports
 variable "site_port" {
   description = "API site port"
   type        = number
@@ -34,7 +37,7 @@ variable "ml_port" {
   type        = number
 }
 
-# Redis Configuration
+# Redis
 variable "reset_database" {
   description = "Reset database flag"
   type        = bool
@@ -44,19 +47,23 @@ variable "reset_database" {
 variable "redis_host" {
   description = "Redis host"
   type        = string
+  default     = "redis"
 }
 
 variable "redis_db" {
   description = "Redis database number"
   type        = number
+  default     = 0
 }
 
 variable "redis_password" {
   description = "Redis password"
   type        = string
+  default     = ""
+  sensitive   = true
 }
 
-# AWS S3 Configuration
+# Misc
 variable "local_storage" {
   description = "Use local storage flag"
   type        = bool
@@ -66,28 +73,7 @@ variable "local_storage" {
 variable "sklearn_service_url" {
   description = "Sklearn service URL"
   type        = string
-}
-
-variable "common_tags" {
-  description = "Common tags to apply to all resources"
-  type        = map(string)
-  default = {
-    Project     = "CAB432-assessment3"
-    Environment = "dev"
-    ManagedBy   = "terraform"
-  }
-}
-
-# ECS Cluster
-resource "aws_ecs_cluster" "main" {
-  name = "${var.project_name}-cluster"
-
-  setting {
-    name  = "containerInsights"
-    value = "enabled"
-  }
-
-  tags = var.common_tags
+  default     = "http://sklearn-service.local:3008"
 }
 
 # Docker Images
@@ -111,37 +97,43 @@ variable "redis_docker_image" {
   type        = string
 }
 
-variable "sklearn_docker_image" {
-  description = "Docker image for the Sklearn service"
-  type        = string
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default = {
+    Project     = "CAB432-assessment3"
+    Environment = "dev"
+    ManagedBy   = "terraform"
+  }
 }
 
-# # CloudWatch Log Groups
-# resource "aws_cloudwatch_log_group" "api" {
-#   name              = "/ecs/${var.project_name}-api"
-#   retention_in_days = 7
-#   tags              = var.common_tags
-# }
+data "aws_vpc" "main" {
+  id = "vpc-007bab53289655834"
+}
 
-# resource "aws_cloudwatch_log_group" "web" {
-#   name              = "/ecs/${var.project_name}-web"
-#   retention_in_days = 7
-#   tags              = var.common_tags
-# }
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.main.id]
+  }
+}
 
-# resource "aws_cloudwatch_log_group" "sklearn" {
-#   name              = "/ecs/${var.project_name}-sklearn"
-#   retention_in_days = 7
-#   tags              = var.common_tags
-# }
+data "aws_security_group" "default" {
+  name = "CAB432SG"
+}
 
-# resource "aws_cloudwatch_log_group" "redis" {
-#   name              = "/ecs/${var.project_name}-redis"
-#   retention_in_days = 7
-#   tags              = var.common_tags
-# }
+data "aws_iam_role" "task_role" {
+  name = "Task-Role-CAB432-ECS"
+}
 
-# Convert all variables to locals for use in task definitions
+data "aws_iam_role" "ecs_execution" {
+  name = "Execution-Role-CAB432-ECS"
+}
+
+data "aws_iam_role" "ecs_task" {
+  name = "CAB432-Instance-Role"
+}
+
 locals {
   shared_environment = [
     {

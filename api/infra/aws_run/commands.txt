@@ -1,0 +1,10 @@
+aws configure sso --use-device-code
+
+terraform apply -target=aws_ecr_repository.steam_predictor_api
+                -target=aws_ecr_repository.steam_predictor_web
+                -target=aws_ecr_repository.steam_predictor_sklearn
+                -target=aws_ecr_repository.steam_predictor_redis
+
+terraform apply
+
+aws ecs execute-command --cluster steam-predictor-cluster --task $(aws ecs list-tasks --cluster steam-predictor-cluster --service-name steam-predictor-api --query 'taskArns[0]' --output text --profile CAB432-STUDENT-901444280953) --container api --interactive --command "/bin/sh" --profile CAB432-STUDENT-901444280953

@@ -7,3 +7,15 @@ terraform to create tasks of the instances for the services
 terraform to run services on the instances
 
 terraform to link instances so services work together
+
+
+
+Structure:
+
+API - EC2
+
+WEB - EC2
+
+SKLEARN WORKER - ESC
+
+REDIS INDEX CACHE - EC2

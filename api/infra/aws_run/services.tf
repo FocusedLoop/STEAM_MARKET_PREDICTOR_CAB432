@@ -6,6 +6,8 @@ resource "aws_ecs_service" "api" {
   desired_count   = 1
   launch_type     = "FARGATE"
 
+  enable_execute_command = true
+
   network_configuration {
     subnets          = data.aws_subnets.default.ids
     security_groups  = [data.aws_security_group.default.id]
@@ -21,6 +23,8 @@ resource "aws_ecs_service" "web" {
   task_definition = aws_ecs_task_definition.web.arn
   desired_count   = 1
   launch_type     = "FARGATE"
+
+  enable_execute_command = true
 
   network_configuration {
     subnets          = data.aws_subnets.default.ids
@@ -38,6 +42,8 @@ resource "aws_ecs_service" "redis" {
   desired_count   = 1
   launch_type     = "FARGATE"
 
+  enable_execute_command = true
+
   network_configuration {
     subnets          = data.aws_subnets.default.ids
     security_groups  = [data.aws_security_group.default.id]
@@ -54,6 +60,8 @@ resource "aws_ecs_service" "sklearn" {
   task_definition = aws_ecs_task_definition.sklearn.arn
   desired_count   = 1
   launch_type     = "FARGATE"
+
+  enable_execute_command = true
 
   network_configuration {
     subnets          = data.aws_subnets.default.ids

@@ -1,17 +1,16 @@
-# Task Definitions
 resource "aws_ecs_task_definition" "api" {
   family                   = "${var.project_name}-api"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = 512
   memory                   = 1024
-  execution_role_arn       = data.aws_iam_role.ecs_execution.arn  # Uses data from vpc.tf
-  task_role_arn           = data.aws_iam_role.ecs_task.arn        # Uses data from vpc.tf
+  task_role_arn           = data.aws_iam_role.task_role.arn
+  execution_role_arn      = data.aws_iam_role.ecs_execution.arn
 
   container_definitions = jsonencode([
     {
       name  = "api"
-      image = "${aws_ecr_repository.steam_predictor_api.repository_url}:latest"
+      image = var.api_docker_image
       
       portMappings = [
         {
@@ -22,22 +21,22 @@ resource "aws_ecs_task_definition" "api" {
       
       environment = local.shared_environment
 
-      healthCheck = {
-        command = ["CMD-SHELL", "curl -f http://localhost:${var.site_port}/health || exit 1"]
-        interval = 30
-        timeout = 5
-        retries = 3
-        startPeriod = 60
-      }
+      # logConfiguration = {
+      #   logDriver = "awslogs"
+      #   options = {
+      #     awslogs-group         = aws_cloudwatch_log_group.api.name
+      #     awslogs-region        = var.aws_region
+      #     awslogs-stream-prefix = "ecs"
+      #   }
+      # }
 
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          awslogs-group         = aws_cloudwatch_log_group.api.name
-          awslogs-region        = var.aws_region
-          awslogs-stream-prefix = "ecs"
-        }
-      }
+      # healthCheck = {
+      #   command = ["CMD-SHELL", "curl -f http://localhost:${var.site_port} || exit 1"]
+      #   interval = 30
+      #   timeout = 5
+      #   retries = 3
+      #   startPeriod = 60
+      # }
     }
   ])
 
@@ -50,37 +49,38 @@ resource "aws_ecs_task_definition" "web" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = 256
   memory                   = 512
-  execution_role_arn       = aws_iam_role.ecs_execution.arn
+  task_role_arn           = data.aws_iam_role.task_role.arn
+  execution_role_arn      = data.aws_iam_role.ecs_execution.arn
 
   container_definitions = jsonencode([
     {
       name  = "web"
-      image = "${aws_ecr_repository.steam_predictor_web.repository_url}:latest"
+      image = var.web_docker_image
       
       portMappings = [
         {
-          containerPort = 3009
+          containerPort = var.web_port
           protocol      = "tcp"
         }
       ]
       
       environment = local.shared_environment
 
+      # logConfiguration = {
+      #   logDriver = "awslogs"
+      #   options = {
+      #     awslogs-group         = aws_cloudwatch_log_group.web.name
+      #     awslogs-region        = var.aws_region
+      #     awslogs-stream-prefix = "ecs"
+      #   }
+      # }
+
       healthCheck = {
-        command = ["CMD-SHELL", "curl -f http://localhost:3009/health || exit 1"]
+        command = ["CMD-SHELL", "curl -s http://localhost:${var.web_port} > /dev/null || exit 1"]
         interval = 30
         timeout = 5
         retries = 3
-        startPeriod = 30
-      }
-
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          awslogs-group         = aws_cloudwatch_log_group.web.name
-          awslogs-region        = var.aws_region
-          awslogs-stream-prefix = "ecs"
-        }
+        startPeriod = 120
       }
     }
   ])
@@ -94,38 +94,39 @@ resource "aws_ecs_task_definition" "sklearn" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = 1024
   memory                   = 2048
-  execution_role_arn       = aws_iam_role.ecs_execution.arn
+  task_role_arn           = data.aws_iam_role.task_role.arn
+  execution_role_arn      = data.aws_iam_role.ecs_execution.arn
 
   container_definitions = jsonencode([
     {
       name  = "sklearn"
-      image = "${aws_ecr_repository.steam_predictor_sklearn.repository_url}:latest"
+      image = var.sklearn_docker_image
       
       portMappings = [
         {
-          containerPort = 3008
+          containerPort = var.ml_port
           protocol      = "tcp"
         }
       ]
       
       environment = local.shared_environment
 
-      healthCheck = {
-        command = ["CMD-SHELL", "curl -f http://localhost:3008/health || exit 1"]
-        interval = 30
-        timeout = 10
-        retries = 3
-        startPeriod = 120
-      }
+      # logConfiguration = {
+      #   logDriver = "awslogs"
+      #   options = {
+      #     awslogs-group         = aws_cloudwatch_log_group.sklearn.name
+      #     awslogs-region        = var.aws_region
+      #     awslogs-stream-prefix = "ecs"
+      #   }
+      # }
 
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          awslogs-group         = aws_cloudwatch_log_group.sklearn.name
-          awslogs-region        = var.aws_region
-          awslogs-stream-prefix = "ecs"
-        }
-      }
+      # healthCheck = {
+      #   command = ["CMD-SHELL", "curl -f http://localhost:${var.ml_port} || exit 1"]
+      #   interval = 30
+      #   timeout = 10
+      #   retries = 3
+      #   startPeriod = 120
+      # }
     }
   ])
 
@@ -138,16 +139,17 @@ resource "aws_ecs_task_definition" "redis" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = 256
   memory                   = 512
-  execution_role_arn       = aws_iam_role.ecs_execution.arn
+  task_role_arn           = data.aws_iam_role.task_role.arn
+  execution_role_arn      = data.aws_iam_role.ecs_execution.arn
 
   container_definitions = jsonencode([
     {
       name  = "redis"
-      image = "${aws_ecr_repository.steam_predictor_redis.repository_url}:latest"
+      image = var.redis_docker_image
       
       portMappings = [
         {
-          containerPort = 6379
+          containerPort = var.redis_port
           protocol      = "tcp"
         }
       ]
@@ -155,25 +157,25 @@ resource "aws_ecs_task_definition" "redis" {
       command = [
         "redis-server",
         "--appendonly", "yes",
-        "--maxmemory", "256mb",
+        "--maxmemory", "512mb",
         "--maxmemory-policy", "allkeys-lru"
       ]
+
+      # logConfiguration = {
+      #   logDriver = "awslogs"
+      #   options = {
+      #     awslogs-group         = aws_cloudwatch_log_group.redis.name
+      #     awslogs-region        = var.aws_region
+      #     awslogs-stream-prefix = "ecs"
+      #   }
+      # }
 
       healthCheck = {
         command = ["CMD", "redis-cli", "ping"]
         interval = 30
         timeout = 5
         retries = 3
-        startPeriod = 10
-      }
-
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          awslogs-group         = aws_cloudwatch_log_group.redis.name
-          awslogs-region        = var.aws_region
-          awslogs-stream-prefix = "ecs"
-        }
+        startPeriod = 30
       }
     }
   ])

@@ -4,9 +4,9 @@ RUN apt-get update \
     && apt-get -yy install libmariadb3 libmariadb-dev gcc
 
 # S3 setup
-COPY ../shared /shared/
-COPY ../setup.py /shared/
-RUN pip install -e /shared
+COPY api/shared /shared/
+WORKDIR /shared
+RUN pip install -e .
 
 WORKDIR /app
 COPY requirements.txt ./

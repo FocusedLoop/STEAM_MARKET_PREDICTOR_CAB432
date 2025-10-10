@@ -30,13 +30,13 @@ resource "aws_ecs_task_definition" "api" {
       #   }
       # }
 
-      # healthCheck = {
-      #   command = ["CMD-SHELL", "curl -f http://localhost:${var.site_port} || exit 1"]
-      #   interval = 30
-      #   timeout = 5
-      #   retries = 3
-      #   startPeriod = 60
-      # }
+      healthCheck = {
+        command = ["CMD-SHELL", "curl -f http://localhost:${var.site_port}/health || exit 1"]
+        interval = 30
+        timeout = 5
+        retries = 3
+        startPeriod = 30
+      }
     }
   ])
 
@@ -76,11 +76,11 @@ resource "aws_ecs_task_definition" "web" {
       # }
 
       healthCheck = {
-        command = ["CMD-SHELL", "curl -s http://localhost:${var.web_port} > /dev/null || exit 1"]
+        command = ["CMD-SHELL", "curl -f http://localhost:${var.web_port} || exit 1"]
         interval = 30
         timeout = 5
         retries = 3
-        startPeriod = 120
+        startPeriod = 30
       }
     }
   ])
@@ -110,6 +110,8 @@ resource "aws_ecs_task_definition" "sklearn" {
       ]
       
       environment = local.shared_environment
+      
+      #command = ["tail", "-f", "/dev/null"]
 
       # logConfiguration = {
       #   logDriver = "awslogs"
@@ -121,11 +123,11 @@ resource "aws_ecs_task_definition" "sklearn" {
       # }
 
       # healthCheck = {
-      #   command = ["CMD-SHELL", "curl -f http://localhost:${var.ml_port} || exit 1"]
+      #   command = ["CMD-SHELL", "curl -f http://localhost:${var.ml_port}/health || exit 1"]
       #   interval = 30
       #   timeout = 10
       #   retries = 3
-      #   startPeriod = 120
+      #   startPeriod = 30
       # }
     }
   ])

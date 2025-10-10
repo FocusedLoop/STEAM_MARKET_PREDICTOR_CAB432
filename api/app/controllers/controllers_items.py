@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
 from app.auth.cognito_jwt import get_current_user
-from STEAM_MARKET_PREDICTOR_CAB432.api.app.services.sklearn import SklearnClient
-from STEAM_MARKET_PREDICTOR_CAB432.api.app.services.redis import redis_cache
+from app.services.sklearn import SklearnClient
+from app.services.redis import redis_cache
 from app.models import (
     model_get_all_groups,
     model_get_group_by_id,

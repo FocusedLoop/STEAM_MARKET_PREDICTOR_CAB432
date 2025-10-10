@@ -8,3 +8,4 @@ joblib
 boto3
 python-dotenv
 requests
+matplotlib

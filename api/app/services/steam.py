@@ -1,12 +1,8 @@
-#SteamID64: 76561198281140980
-#SteamID: STEAM_0:0:160437626
 import requests, os, json
 from urllib.parse import urlencode
 from collections import Counter
 from typing import Optional
 
-# STEAM_COM_BASE = "https://steamcommunity.com"
-# STEAM_API_BASE = "https://api.steampowered.com"
 STEAM_COM_BASE = os.getenv("STEAM_COM_BASE")
 STEAM_API_BASE = os.getenv("STEAM_API_BASE")
 

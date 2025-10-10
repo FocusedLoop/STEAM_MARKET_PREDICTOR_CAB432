@@ -1,11 +1,6 @@
 from typing import Any, Optional
-import threading, STEAM_MARKET_PREDICTOR_CAB432.api.app.services.redis as redis, json, os
 import redis.asyncio
-import joblib
-import base64
-import io
-import tempfile
-
+import os, joblib, json
 
 # Redis queue configuration
 REDIS_HOST = os.environ.get("REDIS_HOST")

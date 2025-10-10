@@ -7,6 +7,7 @@ resource "aws_ecs_service" "api" {
   launch_type     = "FARGATE"
 
   enable_execute_command = true
+  force_new_deployment   = true
 
   network_configuration {
     subnets          = data.aws_subnets.default.ids
@@ -25,6 +26,7 @@ resource "aws_ecs_service" "web" {
   launch_type     = "FARGATE"
 
   enable_execute_command = true
+  force_new_deployment   = true
 
   network_configuration {
     subnets          = data.aws_subnets.default.ids
@@ -43,6 +45,7 @@ resource "aws_ecs_service" "redis" {
   launch_type     = "FARGATE"
 
   enable_execute_command = true
+  force_new_deployment   = true
 
   network_configuration {
     subnets          = data.aws_subnets.default.ids
@@ -62,6 +65,7 @@ resource "aws_ecs_service" "sklearn" {
   launch_type     = "FARGATE"
 
   enable_execute_command = true
+  force_new_deployment   = true
 
   network_configuration {
     subnets          = data.aws_subnets.default.ids

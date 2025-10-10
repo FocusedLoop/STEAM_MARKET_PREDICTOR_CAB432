@@ -10,3 +10,4 @@ pycognito
 cryptography
 pydantic
 email-validator
+httpx

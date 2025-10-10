@@ -4,16 +4,17 @@ RUN apt-get update \
     && apt-get -yy install libmariadb3 libmariadb-dev gcc curl \
     && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /api
+
 # S3 setup
-COPY shared /shared/
+COPY api/shared /shared/
 WORKDIR /shared
 RUN pip install -e .
 
-WORKDIR /app
-
-COPY app/requirements.txt ./
+WORKDIR /api
+COPY api/app/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app/ .
+COPY api/app/ ./app
 
-CMD ["python3", "-m", "uvicorn", "main:app", "--host=0.0.0.0", "--port=3010"]
+CMD ["python3", "-m", "uvicorn", "app.main:app", "--host=0.0.0.0", "--port=3010"]

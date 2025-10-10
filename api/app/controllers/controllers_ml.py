@@ -4,7 +4,7 @@ from app.auth.cognito_jwt import get_current_user
 from app.models import model_save_ml_index, model_get_ml_index, model_get_group_items, model_get_group_by_id, model_delete_ml_index
 from app.services.sklearn import SklearnClient
 from app.services.redis import redis_cache
-from shared import S3StorageManager
+from steam_market_s3_utils import S3StorageManager
 from datetime import datetime
 import os, logging
 

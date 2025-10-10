@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from .utils_ml import PriceModel, validate_price_history
+from utils_ml import PriceModel, validate_price_history
 import os, uvicorn
 
 app = FastAPI(title="ML Service", version="1.0.0")
@@ -68,7 +68,7 @@ async def validate_price_history_endpoint(price_history: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/status")
+@app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}

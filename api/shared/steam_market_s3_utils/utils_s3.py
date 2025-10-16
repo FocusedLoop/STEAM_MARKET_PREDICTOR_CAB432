@@ -1,9 +1,22 @@
 from typing import Optional, Any
 from botocore.exceptions import ClientError
-import boto3, joblib, json, io, os
+import boto3, joblib, json, io, os, logging
 
-BUCKET_NAME = os.environ.get('S3_BUCKET_NAME')
+logger = logging.getLogger(__name__)
+
 REGION_NAME = os.environ.get('AWS_REGION')
+
+def load_bucket_name_from_ssm():
+    ssm = boto3.client('ssm', region_name=REGION_NAME)
+    param_name = '/steam-market-predictor/s3-bucket-name'
+    try:
+        response = ssm.get_parameter(Name=param_name, WithDecryption=True)
+        bucket_name = response['Parameter']['Value']
+        logger.info(f"Loaded S3 bucket name from SSM: {bucket_name}")
+        return bucket_name
+    except ClientError as e:
+        logger.error(f"Error loading S3 bucket name from SSM: {e}")
+        return None
 
 class S3StorageManager:
     """
@@ -14,7 +27,10 @@ class S3StorageManager:
         """
         Initialize S3 client and bucket configuration.
         """
-        self.bucket_name = BUCKET_NAME
+        bucket_name = os.environ.get('S3_BUCKET_NAME')
+        if not bucket_name:
+            bucket_name = load_bucket_name_from_ssm()
+        self.bucket_name = bucket_name
 
         # Initialize S3 client
         try:
@@ -23,9 +39,9 @@ class S3StorageManager:
                 region_name=REGION_NAME,
             )
             self.s3_client.list_buckets()
-            print(f"S3 client initialized for bucket: {self.bucket_name}")
+            logger.info(f"S3 client initialized for bucket: {self.bucket_name}")
         except Exception as e:
-            print(f"Failed to initialize S3 client: {e}")
+            logger.info(f"Failed to initialize S3 client: {e}")
             self.s3_client = None
 
     def upload_file(self, data: Any, file_key: str, data_type: str = 'bytes') -> bool:
@@ -58,10 +74,10 @@ class S3StorageManager:
                 Body=body,
                 ContentType=content_type
             )
-            print(f"File uploaded to s3://{self.bucket_name}/{file_key}")
+            logger.info(f"File uploaded to s3://{self.bucket_name}/{file_key}")
             return True
         except ClientError as e:
-            print(f"Failed to upload file to S3: {e}")
+            logger.warning(f"Failed to upload file to S3: {e}")
             return False
 
     def download_file(self, file_key: str, data_type: str = 'bytes') -> Optional[Any]:
@@ -73,7 +89,7 @@ class S3StorageManager:
 
         try:
             response = self.s3_client.get_object(Bucket=self.bucket_name, Key=file_key)
-            print(f"File downloaded from s3://{self.bucket_name}/{file_key}")
+            logger.info(f"File downloaded from s3://{self.bucket_name}/{file_key}")
             data = response['Body'].read()
 
             if data_type == 'json':
@@ -88,7 +104,7 @@ class S3StorageManager:
                 raise ValueError("Invalid data_type specified. Use 'json', 'model', or 'bytes'.")
 
         except ClientError as e:
-            print(f"Failed to download file from S3: {e}")
+            logger.warning(f"Failed to download file from S3: {e}")
             return None
 
     def generate_presigned_url(self, file_key: str, operation: str = 'get_object', expiration: int = 3600) -> Optional[str]:
@@ -109,7 +125,7 @@ class S3StorageManager:
             )
             return url
         except ClientError as e:
-            print(f"Failed to generate presigned URL: {e}")
+            logger.warning(f"Failed to generate presigned URL: {e}")
             return None
 
     def generate_download_url(self, file_key: str, expiration: int = 3600) -> Optional[str]:
@@ -127,8 +143,8 @@ class S3StorageManager:
 
         try:
             self.s3_client.delete_object(Bucket=self.bucket_name, Key=file_key)
-            print(f"File deleted from s3://{self.bucket_name}/{file_key}")
+            logger.info(f"File deleted from s3://{self.bucket_name}/{file_key}")
             return True
         except ClientError as e:
-            print(f"Failed to delete file from S3: {e}")
+            logger.warning(f"Failed to delete file from S3: {e}")
             return False

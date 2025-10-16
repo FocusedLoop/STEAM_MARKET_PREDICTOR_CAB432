@@ -2,7 +2,7 @@ import requests, json, base64, time
 import streamlit as st
 import os
 
-API_URL = "http://server:3010"
+API_URL = "http://api:3010"
 COGNITO_DOMAIN="https://ap-southeast-2pqj6jtcus.auth.ap-southeast-2.amazoncognito.com/"
 COGNITO_CLIENT_ID = "s37q4bfradfp2ic1j1rfr1b4j"
 REDIRECT_URI = "https%3A%2F%2Fd84l1y8p4kdic.cloudfront.net&response_type=code&scope=aws.cognito.signin.user.admin+email+openid+phone+profile"#"steamapp://auth/callback"

@@ -1,5 +1,7 @@
 from typing import Dict, Any
-import httpx, os
+import httpx, os, logging
+
+logging.basicConfig(level=logging.INFO)
 
 class SklearnClient:
     """Client to communicate with the sklearn ML service"""
@@ -11,6 +13,8 @@ class SklearnClient:
     async def train_model(self, user_id: int, username: str, item_id: int, item_name: str, price_history: Dict[str, Any]) -> Dict[str, Any]:
         """Send training request to sklearn service"""
         async with httpx.AsyncClient(timeout=self.timeout) as client:
+            logging.info(f"Sending training request for item {item_name} (ID: {item_id}) of user {username} (ID: {user_id})")
+            logging.info(f"Price history data: \n===========\n{price_history}\n===========")
             response = await client.post(
                 f"{self.base_url}/train",
                 json={
@@ -46,15 +50,12 @@ class SklearnClient:
     async def validate_price_history(self, price_history: Dict[str, Any]) -> bool:
         """Validate price history data format"""
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(
-                f"{self.base_url}/validate",
-                json={
-                    "price_history": price_history
-                }
-            )
+            logging.info(f"Validating price history data: \n===========\n{price_history}\n===========")
+            response = await client.post(f"{self.base_url}/validate", json=price_history)
             response.raise_for_status()
             result = response.json()
-            return result.get("valid", False)
+            data = result.get("data", {})
+            return data.get("valid", False), data.get("error", "")
     
     async def health_check(self) -> bool:
         """Check if sklearn service is healthy"""

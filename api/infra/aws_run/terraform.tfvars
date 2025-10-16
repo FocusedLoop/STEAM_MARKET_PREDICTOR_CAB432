@@ -2,6 +2,7 @@
 project_name = "steam-predictor"
 aws_region   = "ap-southeast-2"
 environment  = "dev"
+namespace_id = "arn:aws:servicediscovery:ap-southeast-2:901444280953:namespace/ns-xnzxrwi3zj6tlv75"
 
 # Ports
 site_port  = 3010

@@ -1,6 +1,6 @@
 import requests, json, sys, time, threading
 
-BASE_URL = "http://steam-market-price-predictor.cab432.com:3010"
+BASE_URL = "http://steam-predictor-alb-53519641.ap-southeast-2.elb.amazonaws.com:3010"
 #BASE_URL = "http://localhost:3010"
 USERNAME = "testusers"
 PASSWORD = "TestPass1!"
@@ -204,6 +204,7 @@ def test_groups(token):
                 ["Oct 22 2017 01: +0", 0.934, "3"]
             ]
         }
+        print(f"Adding items to {group_id}...")
         r = requests.post(
             f"{BASE_URL}/group/{group_id}/items",
             headers=auth_headers(token),

@@ -73,7 +73,7 @@ variable "local_storage" {
 variable "sklearn_service_url" {
   description = "Sklearn service URL"
   type        = string
-  default     = "http://sklearn-service.local:3008"
+  default     = "http://sklearn:3008"
 }
 
 # Docker Images
@@ -97,6 +97,7 @@ variable "redis_docker_image" {
   type        = string
 }
 
+# Other
 variable "common_tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)
@@ -134,12 +135,24 @@ data "aws_iam_role" "ecs_task" {
   name = "CAB432-Instance-Role"
 }
 
+variable "alb_subnets" {
+  description = "Subnet IDs for the Application Load Balancer"
+  type        = list(string)
+  default = [
+    "subnet-075811427d5564cf9", # ap-southeast-2b
+    "subnet-05a3b8177138c8b14", # ap-southeast-2a
+    "subnet-04ca053dcbe5f49cc"  # ap-southeast-2c
+  ]
+}
+
+variable "namespace_id" {
+  description = "ID of the existing AWS Cloud Map namespace"
+  type        = string
+}
+
+# Locals
 locals {
   shared_environment = [
-    {
-      name  = "NODE_ENV"
-      value = var.environment
-    },
     {
       name  = "AWS_REGION"
       value = var.aws_region

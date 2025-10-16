@@ -10,15 +10,14 @@ terraform apply
 # ENTER SHELL
 aws ecs execute-command \
     --cluster steam-predictor-cluster \
-    --task 5a6b5e5b2ede4435b867b2be4285bb43 \
-    --container sklearn \
+    --task 8d47eb4ab40e403aab7e772f0202077f \
+    --container api \
     --interactive \
     --command "/bin/bash"
 
 # UPDATE ECR
 aws ecs update-service \
   --cluster steam-predictor-cluster \
-  --service steam-predictor-sklearn \
   --force-new-deployment
 
 #

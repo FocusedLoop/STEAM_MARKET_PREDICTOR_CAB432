@@ -3,8 +3,16 @@ from dotenv import load_dotenv
 from app.aws_values import load_parameters, load_secret_manager
 import uvicorn, logging, os
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging to file and console
+LOG_FILE = os.environ.get("LOG_FILE", "/tmp/api.log")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler()
+    ]
+)
 logger = logging.getLogger(__name__)
 
 def configure_environment():

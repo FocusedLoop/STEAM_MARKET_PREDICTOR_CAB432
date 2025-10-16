@@ -64,15 +64,13 @@ def model_add_item_to_group(user_id: int, group_id: int, item_name: str, item_js
         conn.close()
         return {"added": False}
     cursor.execute(
-        "INSERT INTO group_items (group_id, item_name, item_json) VALUES (%s, %s, %s)",
+        "INSERT INTO group_items (group_id, item_name, item_json) VALUES (%s, %s, %s) RETURNING id",
         (group_id, item_name, json.dumps(item_json))
     )
-    cursor.execute("SELECT LASTVAL()")  # Get the last inserted ID
     item_id = cursor.fetchone()[0]
     conn.commit()
-    added = cursor.rowcount > 0
     conn.close()
-    return {"added": added, "id": item_id}
+    return {"added": True, "id": item_id}
 
 # Remove an item from an existing group (must be owned by user)
 def model_remove_item_from_group(user_id: int, group_id: int, item_name: str):

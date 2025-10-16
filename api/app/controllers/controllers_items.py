@@ -61,20 +61,22 @@ async def update_group_name(group_id: int, request: Request, user=Depends(get_cu
 
 # Add item to an existing group
 async def add_item_to_group(group_id: int, request: Request, user=Depends(get_current_user)):
-    data = await request.json()
-    item_name = data.get("item_name")
-    item_json = data.get("item_json")
-
-    is_valid, error_msg = sklearn_client.validate_price_history(item_json)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=f"Invalid price history: {error_msg}")
-    if not item_name or not item_json or not group_id:
-        raise HTTPException(status_code=400, detail="Item name, item JSON, and Group ID are required")
     try:
+        data = await request.json()
+        item_name = data.get("item_name")
+        item_json = data.get("item_json")
+
+        is_valid, error_msg = await sklearn_client.validate_price_history(item_json)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=f"Invalid price history: {error_msg}")
+        if not item_name or not item_json or not group_id:
+            raise HTTPException(status_code=400, detail="Item name, item JSON, and Group ID are required")
+
+        logger.info(f"Adding item {item_name} to group {group_id} for user {user['user_id']}")
         result = model_add_item_to_group(user["user_id"], group_id, item_name, item_json)
         if not result.get("added"):
             raise HTTPException(status_code=404, detail="Group not found, not owned by user, or item could not be added")
-        # Invalidate cache for this group's items
+        
         await redis_cache.delete(f"group:{group_id}:items:{user['user_id']}")
         logger.info(f"Cache deleted for group {group_id} items")
         return {
@@ -82,7 +84,7 @@ async def add_item_to_group(group_id: int, request: Request, user=Depends(get_cu
             "id": result.get("id")
         }
     except Exception as e:
-        logger.error(f"Error adding item to group: {str(e)}")
+        logger.error(f"Error in add_item_to_group: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Remove item from an existing group
@@ -154,7 +156,7 @@ async def get_group_by_id(group_id: int):
         logger.info(f"Cache set for group {group_id}")
         return JSONResponse(content=group)
     except Exception as e:
-        logger.error(f"Error getting group by ID: {str(e)}")
+        logger.error(f"Error getting group by ID {group_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Get all items in a group

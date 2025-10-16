@@ -15,6 +15,26 @@ resource "aws_ecs_service" "api" {
     assign_public_ip = true
   }
 
+  load_balancer {
+    target_group_arn = aws_lb_target_group.api.arn
+    container_name   = "api"
+    container_port   = var.site_port
+  }
+
+  service_connect_configuration {
+    enabled = true
+    namespace = var.namespace_id
+
+    service {
+      port_name      = "api"
+      discovery_name = "api"
+      client_alias {
+        port     = var.site_port
+        dns_name = "api"
+      }
+    }
+  }
+
   tags = var.common_tags
 }
 
@@ -32,6 +52,26 @@ resource "aws_ecs_service" "web" {
     subnets          = data.aws_subnets.default.ids
     security_groups  = [data.aws_security_group.default.id]
     assign_public_ip = true
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.web.arn
+    container_name   = "web"
+    container_port   = var.web_port
+  }
+
+  service_connect_configuration {
+    enabled = true
+    namespace = var.namespace_id
+
+    service {
+      port_name      = "web"
+      discovery_name = "web"
+      client_alias {
+        port     = var.web_port
+        dns_name = "web"
+      }
+    }
   }
 
   tags = var.common_tags
@@ -53,6 +93,20 @@ resource "aws_ecs_service" "redis" {
     assign_public_ip = false
   }
 
+  service_connect_configuration {
+    enabled = true
+    namespace = var.namespace_id
+
+    service {
+      port_name      = "redis"
+      discovery_name = "redis"
+      client_alias {
+        port     = var.redis_port
+        dns_name = "redis"
+      }
+    }
+  }
+
   tags = var.common_tags
 }
 
@@ -70,7 +124,21 @@ resource "aws_ecs_service" "sklearn" {
   network_configuration {
     subnets          = data.aws_subnets.default.ids
     security_groups  = [data.aws_security_group.default.id]
-    assign_public_ip = false
+    assign_public_ip = true
+  }
+
+  service_connect_configuration {
+    enabled = true
+    namespace = var.namespace_id
+
+    service {
+      port_name      = "sklearn"
+      discovery_name = "sklearn"
+      client_alias {
+        port     = var.ml_port
+        dns_name = "sklearn"
+      }
+    }
   }
 
   tags = var.common_tags

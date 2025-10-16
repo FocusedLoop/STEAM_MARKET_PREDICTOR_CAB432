@@ -16,6 +16,7 @@ resource "aws_ecs_task_definition" "api" {
         {
           containerPort = var.site_port
           protocol      = "tcp"
+          name          = "api"
         }
       ]
       
@@ -61,6 +62,7 @@ resource "aws_ecs_task_definition" "web" {
         {
           containerPort = var.web_port
           protocol      = "tcp"
+          name          = "web"
         }
       ]
       
@@ -106,6 +108,7 @@ resource "aws_ecs_task_definition" "sklearn" {
         {
           containerPort = var.ml_port
           protocol      = "tcp"
+          name          = "sklearn"
         }
       ]
       
@@ -153,6 +156,7 @@ resource "aws_ecs_task_definition" "redis" {
         {
           containerPort = var.redis_port
           protocol      = "tcp"
+          name          = "redis"
         }
       ]
 

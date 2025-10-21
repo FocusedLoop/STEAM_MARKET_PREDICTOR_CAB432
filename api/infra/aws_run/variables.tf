@@ -150,6 +150,16 @@ variable "namespace_id" {
   type        = string
 }
 
+variable "cab432_zone_id" {
+  description = "Route53 Zone ID for cab432.com"
+  type        = string
+}
+
+variable "certificate_arn" {
+  description = "ARN of the ACM certificate"
+  type        = string
+}
+
 # Locals
 locals {
   shared_environment = [

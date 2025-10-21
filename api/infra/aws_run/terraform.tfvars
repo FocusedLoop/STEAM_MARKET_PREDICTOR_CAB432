@@ -23,3 +23,9 @@ common_tags = {
   qut-username  = "n11275561@qut.edu.au"
   qut-username2 = "n11803444@qut.edu.au"
 }
+
+# Route53 Zone ID
+cab432_zone_id = "Z02680423BHWEVRU2JZDQ"
+
+# ACM Certificate ARN
+certificate_arn = "arn:aws:acm:ap-southeast-2:901444280953:certificate/3c579364-0e7b-40d3-a883-4c91769b8fda"

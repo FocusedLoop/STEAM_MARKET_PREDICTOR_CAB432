@@ -25,7 +25,7 @@ docker push 901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/steam-predictor-sk
 
 # Update services
 for SERVICE in steam-predictor-api steam-predictor-web steam-predictor-redis steam-predictor-sklearn; do
-  LATEST_REVISION=$(aws ecs list-task-definitions --family-prefix $SERVICE --sort DESC --max-items 1 --query "taskDefinitionArns[0]" --output text | awk -F: '{print $NF}')
+  LATEST_REVISION=$(aws ecs list-task-definitions --family-prefix $SERVICE --sort DESC --max-items 1 --query "taskDefinitionArns[0]" --output text | grep -v None | awk -F: '{print $NF}')
   aws ecs update-service \
     --cluster steam-predictor-cluster \
     --service $SERVICE \

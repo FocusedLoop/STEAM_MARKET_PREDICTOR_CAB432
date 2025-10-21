@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from dotenv import load_dotenv
 from app.aws_values import load_parameters, load_secret_manager
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn, logging, os
 
 # Configure logging to file and console
@@ -31,6 +32,14 @@ def create_app():
         title="Steam Market Price Predictor API",
         description="API for predicting Steam market item prices",
         version="1.0.0",
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["https://steam-market-price-predictor.cab432.com/", "http://localhost:3009"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     @app.get("/health")

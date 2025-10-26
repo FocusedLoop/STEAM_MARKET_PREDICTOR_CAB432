@@ -18,7 +18,7 @@ redis_docker_image   = "901444280953.dkr.ecr.ap-southeast-2.amazonaws.com/steam-
 
 # SQS Queue URLs
 sqs_queue_url = "https://sqs.ap-southeast-2.amazonaws.com/901444280953/steam-predictor-ml-jobs-queue"
-sqs_dlq_url   = "https://sqs.ap-southeast-2.amazonaws.com/901444280953/steam-predictor-ml-jobs-dlq"
+sqs_dlq_url   = ""
 
 # Tags
 common_tags = {

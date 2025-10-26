@@ -3,6 +3,7 @@ from fastapi.responses import Response
 from app.auth.cognito_jwt import get_current_user
 from app.models import model_save_ml_index, model_get_ml_index, model_get_group_items, model_get_group_by_id, model_delete_ml_index
 from app.services.sklearn import SklearnClient
+from app.services.sqs import sqs_client
 from app.services.redis import redis_cache
 from steam_market_s3_utils import S3StorageManager
 from datetime import datetime
@@ -10,6 +11,11 @@ import os, logging
 
 # Initialize sklearn client
 sklearn_client = SklearnClient()
+
+def use_sqs():
+    """Check if SQS should be used - check dynamically each time"""
+    return os.getenv("SQS_QUEUE_URL") is not None and os.getenv("SQS_QUEUE_URL") != ""
+
 logger = logging.getLogger(__name__)
 
 # Handle training groups of models, go through each item in the group and train them
@@ -51,35 +57,55 @@ async def group_train_model(request: Request, user=Depends(get_current_user)):
 
             # Call sklearn service to train model
             try:
-                response = await sklearn_client.train_model(
-                    user["user_id"], 
-                    user["username"], 
-                    item_id, 
-                    item_name, 
-                    price_history
-                )
-                
-                if not response.get("success"):
-                    logger.error(f"Training failed for item {item_id} in group {group_id}")
-                    raise HTTPException(status_code=500, detail=f"Training failed for item {item_id}")
-                
-                model_data = response["data"]
-                save_info = model_save_ml_index(
-                    user["user_id"],
-                    group_id,
-                    item_id,
-                    model_data["data_hash"]
-                )
-                
-                logger.info(f"Successfully trained model for item {item_id} ({item_name})")
-                results.append({
-                    "item_id": item_id,
-                    "item_name": item_name,
-                    "save_info": save_info,
-                    "graph": model_data["graph"],
-                    "graph_url": model_data["graph_url"],
-                    "metrics": model_data.get("metrics", {})
-                })
+                if use_sqs():
+                    success = sqs_client.send_training_job(
+                        user["user_id"],
+                        user["username"],
+                        item_id,
+                        item_name,
+                        price_history
+                    )
+                    
+                    if not success:
+                        logger.error(f"Failed to send training job to SQS for item {item_id}")
+                        raise HTTPException(status_code=500, detail=f"Failed to queue training job for item {item_id}")
+                    
+                    logger.info(f"Training job queued for item {item_id} ({item_name})")
+                    results.append({
+                        "item_id": item_id,
+                        "item_name": item_name,
+                        "message": "Training job queued. Please check back later for results."
+                    })
+                else:
+                    response = await sklearn_client.train_model(
+                        user["user_id"], 
+                        user["username"], 
+                        item_id, 
+                        item_name, 
+                        price_history
+                    )
+                    
+                    if not response.get("success"):
+                        logger.error(f"Training failed for item {item_id} in group {group_id}")
+                        raise HTTPException(status_code=500, detail=f"Training failed for item {item_id}")
+                    
+                    model_data = response["data"]
+                    save_info = model_save_ml_index(
+                        user["user_id"],
+                        group_id,
+                        item_id,
+                        model_data["data_hash"]
+                    )
+                    
+                    logger.info(f"Successfully trained model for item {item_id} ({item_name})")
+                    results.append({
+                        "item_id": item_id,
+                        "item_name": item_name,
+                        "save_info": save_info,
+                        "graph": model_data["graph"],
+                        "graph_url": model_data["graph_url"],
+                        "metrics": model_data.get("metrics", {})
+                    })
             except Exception as e:
                 logger.error(f"Training failed for item {item_id}: {str(e)}")
                 raise HTTPException(status_code=500, detail=f"Training failed for item {item_id}: {str(e)}")
@@ -256,26 +282,48 @@ async def predict_item_prices(group_id: int, request: Request, user=Depends(get_
 
         # Call sklearn service to predict price
         try:
-            response = await sklearn_client.predict_price(
-                user["user_id"],
-                user["username"], 
-                item_id,
-                item_name,
-                model_info["data_hash"],
-                start_time.isoformat(),
-                end_time.isoformat()
-            )
-            
-            if not response.get("success"):
-                logger.error(f"Prediction failed for item {item_id}, user {user['user_id']}")
-                raise HTTPException(status_code=500, detail="Prediction failed")
-            
-            prediction_data = response["data"]
-            logger.info(f"Successfully generated prediction for item {item_id} ({item_name})")
-            return {
-                "graph": prediction_data["graph"],
-                "graph_url": prediction_data["graph_url"]
-            }
+            if use_sqs():
+                success = sqs_client.send_prediction_job(
+                    user["user_id"],
+                    user["username"],
+                    item_id,
+                    item_name,
+                    model_info["data_hash"],
+                    start_time.isoformat(),
+                    end_time.isoformat()
+                )
+                
+                if not success:
+                    logger.error(f"Failed to send prediction job to SQS for item {item_id}")
+                    raise HTTPException(status_code=500, detail="Failed to queue prediction job")
+                
+                logger.info(f"Prediction job queued for item {item_id} ({item_name})")
+                return {
+                    "message": "Prediction job queued. Please check back later for results.",
+                    "item_id": item_id,
+                    "item_name": item_name
+                }
+            else:
+                response = await sklearn_client.predict_price(
+                    user["user_id"],
+                    user["username"], 
+                    item_id,
+                    item_name,
+                    model_info["data_hash"],
+                    start_time.isoformat(),
+                    end_time.isoformat()
+                )
+                
+                if not response.get("success"):
+                    logger.error(f"Prediction failed for item {item_id}, user {user['user_id']}")
+                    raise HTTPException(status_code=500, detail="Prediction failed")
+                
+                prediction_data = response["data"]
+                logger.info(f"Successfully generated prediction for item {item_id} ({item_name})")
+                return {
+                    "graph": prediction_data["graph"],
+                    "graph_url": prediction_data["graph_url"]
+                }
             
         except Exception as e:
             logger.error(f"Prediction failed for item {item_id}: {str(e)}")

@@ -2,11 +2,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from utils_ml import PriceModel, validate_price_history
 import os, uvicorn, logging, base64
+from sqs_worker import sqs_worker, start_sqs_worker
 
-app = FastAPI(title="ML Service", version="1.0.0")
-PORT = os.getenv("ML_PORT")
-
-# Logging
 LOG_FILE = os.environ.get("ML_LOG_FILE", "/tmp/ml_service.log")
 logging.basicConfig(
     level=logging.INFO,
@@ -17,6 +14,18 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+app = FastAPI(title="ML Service", version="1.0.0")
+PORT = os.getenv("ML_PORT")
+
+@app.on_event("startup")
+async def startup_event():
+    """Start the SQS worker on startup."""
+    if os.getenv("SQS_QUEUE_URL"):
+        logger.info("Starting SQS worker...")
+        start_sqs_worker()
+    else:
+        logger.info("SQS_QUEUE_URL not set, starting in HTTP mode")
 
 
 # Models

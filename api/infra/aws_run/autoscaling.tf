@@ -137,3 +137,54 @@ resource "aws_cloudwatch_metric_alarm" "sklearn_memory_high" {
   tags = var.common_tags
 }
 
+resource "aws_appautoscaling_policy" "sklearn_queue_depth_scale_up" {
+  name               = "${var.project_name}-sklearn-queue-depth-scale-up"
+  policy_type        = "StepScaling"
+  resource_id        = aws_appautoscaling_target.sklearn_target.resource_id
+  scalable_dimension = aws_appautoscaling_target.sklearn_target.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.sklearn_target.service_namespace
+
+  step_scaling_policy_configuration {
+    adjustment_type         = "ChangeInCapacity"
+    cooldown               = 60
+    metric_aggregation_type = "Average"
+
+    step_adjustment {
+      metric_interval_lower_bound = 0
+      metric_interval_upper_bound = 5
+      scaling_adjustment          = 1
+    }
+
+    step_adjustment {
+      metric_interval_lower_bound = 5
+      metric_interval_upper_bound = 10
+      scaling_adjustment          = 2
+    }
+
+    step_adjustment {
+      metric_interval_lower_bound = 10
+      scaling_adjustment           = 3
+    }
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "sklearn_queue_depth_high" {
+  alarm_name          = "${var.project_name}-sklearn-queue-depth-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  namespace           = "AWS/SQS"
+  period              = "60"
+  statistic           = "Average"
+  threshold           = "5"
+  alarm_description   = "Scale up when SQS queue has more than 5 messages"
+  alarm_actions       = [aws_appautoscaling_policy.sklearn_queue_depth_scale_up.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    QueueName = aws_sqs_queue.ml_jobs.name
+  }
+
+  tags = var.common_tags
+}
+

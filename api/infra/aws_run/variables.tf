@@ -76,6 +76,18 @@ variable "sklearn_service_url" {
   default     = "http://sklearn:3008"
 }
 
+variable "sqs_queue_url" {
+  description = "SQS queue URL for ML jobs"
+  type        = string
+  default     = ""
+}
+
+variable "sqs_dlq_url" {
+  description = "SQS dead letter queue URL"
+  type        = string
+  default     = ""
+}
+
 # Docker Images
 variable "api_docker_image" {
   description = "Docker image for the API service"
@@ -216,6 +228,14 @@ locals {
     {
       name  = "SKLEARN_SERVICE_URL"
       value = var.sklearn_service_url
+    },
+    {
+      name  = "SQS_QUEUE_URL"
+      value = var.sqs_queue_url
+    },
+    {
+      name  = "SQS_DLQ_URL"
+      value = var.sqs_dlq_url
     },
     {
       name  = "API_DOCKER_IMAGE"

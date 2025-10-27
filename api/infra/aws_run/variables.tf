@@ -172,6 +172,12 @@ variable "certificate_arn" {
   type        = string
 }
 
+variable "s3_bucket" {
+  description = "S3 bucket for Lambda function code"
+  type        = string
+  
+}
+
 # Locals
 locals {
   shared_environment = [
@@ -246,6 +252,6 @@ locals {
     {
       name  = "REDIS_DOCKER_IMAGE"
       value = var.redis_docker_image
-    }
+    },
   ]
 }

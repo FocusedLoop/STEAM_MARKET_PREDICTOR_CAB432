@@ -33,3 +33,6 @@ cab432_zone_id = "Z02680423BHWEVRU2JZDQ"
 
 # ACM Certificate ARN
 certificate_arn = "arn:aws:acm:ap-southeast-2:901444280953:certificate/3c579364-0e7b-40d3-a883-4c91769b8fda"
+
+# Bucket for Lambda function code
+s3_bucket = "a2-pairs-5-a2-ml-models-s3-bucket"

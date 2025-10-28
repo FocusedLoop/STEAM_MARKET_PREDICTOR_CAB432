@@ -10,8 +10,8 @@ terraform apply
 # ENTER SHELL
 aws ecs execute-command \
     --cluster steam-predictor-cluster \
-    --task 2a0e80b18e0646fba4d537d92ce1e7da \
-    --container api \
+    --task 047ed15db11b4af8befdb3b57adc3e45 \
+    --container sklearn \
     --interactive \
     --command "/bin/bash"
 

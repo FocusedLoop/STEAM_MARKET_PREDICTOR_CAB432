@@ -6,6 +6,8 @@ pandas
 numpy
 joblib
 boto3
+botocore
+psycopg2-binary
 python-dotenv
 requests
 matplotlib

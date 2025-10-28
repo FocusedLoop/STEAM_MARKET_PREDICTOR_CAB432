@@ -114,7 +114,7 @@ resource "aws_ecs_task_definition" "sklearn" {
       
       environment = local.shared_environment
       
-      #command = ["tail", "-f", "/dev/null"]
+      command = ["tail", "-f", "/dev/null"]
 
       # logConfiguration = {
       #   logDriver = "awslogs"

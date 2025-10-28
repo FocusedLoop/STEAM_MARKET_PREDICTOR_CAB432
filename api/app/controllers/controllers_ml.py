@@ -14,6 +14,7 @@ sklearn_client = SklearnClient()
 
 def use_sqs():
     """Check if SQS should be used - check dynamically each time"""
+    return False
     return os.getenv("SQS_QUEUE_URL") is not None and os.getenv("SQS_QUEUE_URL") != ""
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,7 @@ async def group_train_model(request: Request, user=Depends(get_current_user)):
                     success = sqs_client.send_training_job(
                         user["user_id"],
                         user["username"],
+                        group_id,
                         item_id,
                         item_name,
                         price_history
@@ -249,7 +251,7 @@ async def delete_group_model(group_id: int, user=Depends(get_current_user)):
         logger.error(f"Failed to delete models for group {group_id}, user {user['user_id']}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete models for group: {str(e)}")
 
-# NOTE: Graphs have no way to be deleted currently
+# Graph deleted with lambda function
 async def predict_item_prices(group_id: int, request: Request, user=Depends(get_current_user)):
     try:
         data = await request.json()

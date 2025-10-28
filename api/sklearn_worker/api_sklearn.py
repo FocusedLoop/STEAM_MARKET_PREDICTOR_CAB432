@@ -59,7 +59,7 @@ async def train_model(request: TrainRequest):
         model = PriceModel(request.user_id, request.username, request.item_id, request.item_name)
         logging.info(f"Training model for item {request.item_name} (ID: {request.item_id}) of user {request.username} (ID: {request.user_id})")
         raw_prices = request.price_history.get("prices")
-        logging.info(f"Price history raw_prices: \n===========\n{raw_prices}\n===========")
+        logging.info(f"Price history raw_prices: \n===========\n{raw_prices[40:]}\n===========")
         result = model.create_model(raw_prices)
 
         #logging.info(f"Training result: {result}")
@@ -96,6 +96,7 @@ async def predict_price(request: PredictRequest):
 @app.post("/validate", response_model=MLResponse)
 async def validate_price_history_endpoint(price_history: dict):
     """Validate price history data format"""
+    logger.info(f"Received for validation: {price_history}")
     try:
         is_valid, message = validate_price_history(price_history)
         logger.info(f"Validation result: valid={is_valid}, message='{message}'")
@@ -110,8 +111,13 @@ async def validate_price_history_endpoint(price_history: dict):
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
+    """Combined health check endpoint for app and SQS worker."""
+    return {
+        "app_status": "healthy",
+        "sqs_worker_status": "healthy" if sqs_worker.running else "stopped",
+        "sqs_queue_url": sqs_worker.queue_url,
+        "sqs_dlq_url": sqs_worker.dlq_url
+    }
 
 if __name__ == "__main__":
     logging.info(f"Starting ML service on port {PORT}")

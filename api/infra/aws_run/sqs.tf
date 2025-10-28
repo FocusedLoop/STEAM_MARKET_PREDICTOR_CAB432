@@ -19,52 +19,52 @@ resource "aws_sqs_queue" "ml_jobs_dlq" {
   tags = var.common_tags
 }
 
-resource "aws_iam_role_policy" "api_sqs_send" {
-  name = "${var.project_name}-api-sqs-send-policy"
-  role = data.aws_iam_role.task_role.id
+# resource "aws_iam_role_policy" "api_sqs_send" {
+#   name = "${var.project_name}-api-sqs-send-policy"
+#   role = data.aws_iam_role.task_role.id
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "sqs:SendMessage",
-          "sqs:GetQueueAttributes"
-        ]
-        Resource = aws_sqs_queue.ml_jobs.arn
-      }
-    ]
-  })
-}
+#   policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [
+#       {
+#         Effect = "Allow"
+#         Action = [
+#           "sqs:SendMessage",
+#           "sqs:GetQueueAttributes"
+#         ]
+#         Resource = aws_sqs_queue.ml_jobs.arn
+#       }
+#     ]
+#   })
+# }
 
-resource "aws_iam_role_policy" "sklearn_sqs_receive" {
-  name = "${var.project_name}-sklearn-sqs-receive-policy"
-  role = data.aws_iam_role.task_role.id
+# resource "aws_iam_role_policy" "sklearn_sqs_receive" {
+#   name = "${var.project_name}-sklearn-sqs-receive-policy"
+#   role = data.aws_iam_role.task_role.id
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "sqs:ReceiveMessage",
-          "sqs:DeleteMessage",
-          "sqs:GetQueueAttributes",
-          "sqs:ChangeMessageVisibility"
-        ]
-        Resource = aws_sqs_queue.ml_jobs.arn
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "sqs:SendMessage"
-        ]
-        Resource = aws_sqs_queue.ml_jobs_dlq.arn
-      }
-    ]
-  })
-}
+#   policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [
+#       {
+#         Effect = "Allow"
+#         Action = [
+#           "sqs:ReceiveMessage",
+#           "sqs:DeleteMessage",
+#           "sqs:GetQueueAttributes",
+#           "sqs:ChangeMessageVisibility"
+#         ]
+#         Resource = aws_sqs_queue.ml_jobs.arn
+#       },
+#       {
+#         Effect = "Allow"
+#         Action = [
+#           "sqs:SendMessage"
+#         ]
+#         Resource = aws_sqs_queue.ml_jobs_dlq.arn
+#       }
+#     ]
+#   })
+# }
 
 resource "aws_cloudwatch_metric_alarm" "ml_queue_depth_high" {
   alarm_name          = "${var.project_name}-ml-queue-depth-high"

@@ -6,8 +6,8 @@ import time
 import threading
 from botocore.exceptions import ClientError
 from utils_ml import PriceModel, validate_price_history
-from api_sklearn import app
 from fastapi.responses import JSONResponse
+from db import model_save_ml_index
 
 logger = logging.getLogger(__name__)
 
@@ -69,10 +69,11 @@ class SQSWorker:
             user_id = job_data.get('user_id')
             username = job_data.get('username')
             item_id = job_data.get('item_id')
+            group_id = job_data.get('group_id')
             item_name = job_data.get('item_name')
             price_history = job_data.get('price_history')
             
-            logger.info(f"Training model for {item_name} (item_id: {item_id})")
+            logger.info(f"Training model for {item_name} (group_id: {group_id},item_id: {item_id}, user: {username})")
             
             is_valid, error_msg = validate_price_history(price_history)
             if not is_valid:
@@ -80,7 +81,14 @@ class SQSWorker:
                 return False
             
             model = PriceModel(user_id, username, item_id, item_name)
-            result = model.create_model(price_history.get("prices"))
+            result = model.create_model(price_history.get('prices'))
+
+            model_save_ml_index(
+                user_id,
+                group_id,
+                item_id,
+                result["data_hash"]
+            )
             
             logger.info(f"Model training completed for item {item_id}")
             return True
@@ -206,15 +214,4 @@ sqs_worker = SQSWorker()
 
 def start_sqs_worker():
     """Start the SQS worker."""
-    if app and sqs_worker:
-        sqs_worker.start()
-
-@app.get("/sqs-worker/health")
-async def sqs_worker_health():
-    """Health check endpoint for SQS worker."""
-    return {
-        "status": "healthy" if sqs_worker.running else "stopped",
-        "queue_url": sqs_worker.queue_url,
-        "dlq_url": sqs_worker.dlq_url
-    }
-
+    sqs_worker.start()

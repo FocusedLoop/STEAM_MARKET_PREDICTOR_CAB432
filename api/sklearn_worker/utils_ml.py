@@ -151,7 +151,7 @@ class PriceModel:
     def _normalize_prices(raw_prices: list):
         # Expecting raw_prices as a list of [date, price, quantity]
         df = pd.DataFrame(raw_prices, columns=["time", "price", "volume"])
-        logger.info(f"Processing raw prices:\n {raw_prices}")
+        logger.info(f"Processing raw prices:\n {raw_prices[:20]}")
         df['time'] = df['time'].astype(str)
         df['time'] = df['time'].str.replace(r' \+0$', '', regex=True)
         df['time'] = df['time'].str.replace(r':$', '', regex=True)
@@ -209,6 +209,7 @@ class PriceModel:
 
     # Generate training graph to display model performance
     def _generate_training_graph(self, json_obj: str, pipe, scaler):
+        print(f"Sample prices: {json_obj[:10]}")
         df = pd.DataFrame(json_obj)
         df = self._normalize_prices(df)
         X = df[PriceModel.FEATURE_COLS]
@@ -365,7 +366,7 @@ class PriceModel:
             logger.info(f"Training graph saved at with {graph_url}")            
             return {
                 "user_id": self.user_id,
-                "group_id": self.item_id,
+                "item_id": self.item_id,
                 "data_hash": data_hash,
                 "metrics": metrics,
                 "graph": graph,

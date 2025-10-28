@@ -29,7 +29,7 @@ class SQSClient:
             logger.error(f"Failed to initialize SQS client: {e}")
             self.sqs = None
     
-    def send_training_job(self, user_id: int, username: str, item_id: int, 
+    def send_training_job(self, user_id: int, username: str, group_id: int, item_id: int, 
                          item_name: str, price_history: Dict[str, Any]) -> bool:
         """
         Send a training job to the SQS queue.
@@ -52,6 +52,7 @@ class SQSClient:
             "job_type": "train",
             "user_id": user_id,
             "username": username,
+            "group_id": group_id,
             "item_id": item_id,
             "item_name": item_name,
             "price_history": price_history,

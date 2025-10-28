@@ -14,7 +14,7 @@ sklearn_client = SklearnClient()
 
 def use_sqs():
     """Check if SQS should be used - check dynamically each time"""
-    return False
+    #return False
     return os.getenv("SQS_QUEUE_URL") is not None and os.getenv("SQS_QUEUE_URL") != ""
 
 logger = logging.getLogger(__name__)
@@ -284,7 +284,8 @@ async def predict_item_prices(group_id: int, request: Request, user=Depends(get_
 
         # Call sklearn service to predict price
         try:
-            if use_sqs():
+            sqs = False
+            if sqs:#use_sqs():
                 success = sqs_client.send_prediction_job(
                     user["user_id"],
                     user["username"],

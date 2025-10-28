@@ -114,7 +114,7 @@ resource "aws_ecs_task_definition" "sklearn" {
       
       environment = local.shared_environment
       
-      command = ["tail", "-f", "/dev/null"]
+      #command = ["tail", "-f", "/dev/null"]
 
       # logConfiguration = {
       #   logDriver = "awslogs"
@@ -125,13 +125,13 @@ resource "aws_ecs_task_definition" "sklearn" {
       #   }
       # }
 
-      # healthCheck = {
-      #   command = ["CMD-SHELL", "curl -f http://localhost:${var.ml_port}/health || exit 1"]
-      #   interval = 30
-      #   timeout = 10
-      #   retries = 3
-      #   startPeriod = 30
-      # }
+      healthCheck = {
+        command = ["CMD-SHELL", "curl -f http://localhost:${var.ml_port}/health || exit 1"]
+        interval = 30
+        timeout = 10
+        retries = 3
+        startPeriod = 30
+      }
     }
   ])
 
